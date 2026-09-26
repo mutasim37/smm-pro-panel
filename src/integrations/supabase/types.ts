@@ -14,13 +14,219 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bot_deposits: {
+        Row: {
+          amount_credited: number | null
+          amount_requested: number | null
+          confirmed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          note: string | null
+          status: string
+          telegram_id: number
+          tx_hash: string | null
+        }
+        Insert: {
+          amount_credited?: number | null
+          amount_requested?: number | null
+          confirmed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          telegram_id: number
+          tx_hash?: string | null
+        }
+        Update: {
+          amount_credited?: number | null
+          amount_requested?: number | null
+          confirmed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          telegram_id?: number
+          tx_hash?: string | null
+        }
+        Relationships: []
+      }
+      bot_orders: {
+        Row: {
+          category: string | null
+          charge: number
+          comments: string | null
+          created_at: string
+          error: string | null
+          id: string
+          link: string
+          provider_order_id: string | null
+          quantity: number
+          remains: string | null
+          service_id: number
+          service_name: string
+          start_count: string | null
+          status: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          charge: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link: string
+          provider_order_id?: string | null
+          quantity: number
+          remains?: string | null
+          service_id: number
+          service_name: string
+          start_count?: string | null
+          status?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          charge?: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link?: string
+          provider_order_id?: string | null
+          quantity?: number
+          remains?: string | null
+          service_id?: number
+          service_name?: string
+          start_count?: string | null
+          status?: string
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot_service_cache: {
+        Row: {
+          id: number
+          services: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          services?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          services?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot_states: {
+        Row: {
+          data: Json
+          step: string | null
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          data?: Json
+          step?: string | null
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          step?: string | null
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot_users: {
+        Row: {
+          balance: number
+          created_at: string
+          first_name: string | null
+          is_admin: boolean
+          is_banned: boolean
+          language_code: string | null
+          last_name: string | null
+          last_seen_at: string
+          telegram_id: number
+          total_deposited: number
+          total_spent: number
+          username: string | null
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          telegram_id: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          telegram_id?: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      bot_adjust_balance: {
+        Args: { _delta: number; _telegram_id: number }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
