@@ -1,0 +1,257 @@
+// Admin control panel. Only reachable by chat ids listed in BOT_ADMIN_CHAT_ID.
+import { adminChatIds, BRAND, EFFECTS } from "./config.server";
+import { escapeHtml, ik, sendMessage, sendPhoto, type InlineKeyboard } from "./telegram.server";
+import { BANNERS } from "./assets.server";
+import { DIVIDER, money } from "./views.server";
+import { supabaseAdmin, setState } from "./store.server";
+import { providerBalance } from "./smmgen.server";
+import { getCatalog } from "./catalog.server";
+
+export function isAdmin(chatId: number): boolean {
+  return adminChatIds().includes(chatId);
+}
+
+export function adminKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: "👥 Users", callback_data: "a:users" },
+      { text: "📊 Statistics", callback_data: "a:stats" },
+    ],
+    [
+      { text: "📦 Orders", callback_data: "a:orders" },
+      { text: "💰 Deposits", callback_data: "a:deposits" },
+    ],
+    [
+      { text: "🎫 Reports", callback_data: "a:tickets" },
+      { text: "🏦 Provider Balance", callback_data: "a:provider" },
+    ],
+    [
+      { text: "📣 Broadcast", callback_data: "a:broadcast" },
+      { text: "♻️ Refresh Catalog", callback_data: "a:refresh" },
+    ],
+    [{ text: "🏠 Exit to Home", callback_data: "home" }],
+  ];
+}
+
+export async function sendAdminPanel(chatId: number) {
+  const caption = [
+    "<b>🛡 ADMIN CONTROL CENTER</b>",
+    DIVIDER,
+    `Panel · <b>${BRAND.name}</b>`,
+    "Full live control over users, orders, deposits and broadcasts.",
+    DIVIDER,
+    "<blockquote>All actions are logged. Handle with care.</blockquote>",
+  ].join("\n");
+
+  const sent = await sendPhoto(chatId, BANNERS.admin, caption, {
+    reply_markup: ik(adminKeyboard()),
+    message_effect_id: EFFECTS.fire,
+  });
+  if (!sent) await sendMessage(chatId, caption, { reply_markup: ik(adminKeyboard()) });
+}
+
+function backRow(): InlineKeyboard {
+  return [[{ text: "⬅️ Admin Panel", callback_data: "a:panel" }, { text: "🏠 Home", callback_data: "home" }]];
+}
+
+async function countSince(table: "bot_orders" | "bot_deposits" | "bot_users", isoDate: string) {
+  const query = supabaseAdmin.from(table).select("*", { count: "exact", head: true }).gte("created_at", isoDate);
+  const { count } = await query;
+  return count ?? 0;
+}
+
+export async function adminStats(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const dayStart = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+  const [{ count: users }, { count: orders }, todayUsers, todayOrders, todayDeposits, sums] =
+    await Promise.all([
+      supabaseAdmin.from("bot_users").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("bot_orders").select("*", { count: "exact", head: true }),
+      countSince("bot_users", dayStart),
+      countSince("bot_orders", dayStart),
+      countSince("bot_deposits", dayStart),
+      supabaseAdmin.from("bot_users").select("balance, total_deposited, total_spent"),
+    ]);
+
+  const rows = (sums.data ?? []) as { balance: number; total_deposited: number; total_spent: number }[];
+  const totals = rows.reduce(
+    (acc, row) => ({
+      balance: acc.balance + Number(row.balance),
+      deposited: acc.deposited + Number(row.total_deposited),
+      spent: acc.spent + Number(row.total_spent),
+    }),
+    { balance: 0, deposited: 0, spent: 0 },
+  );
+
+  const text = [
+    "<b>📊 Live Statistics</b>",
+    DIVIDER,
+    `👥 <b>Total users</b> · <code>${users ?? 0}</code>`,
+    `📦 <b>Total orders</b> · <code>${orders ?? 0}</code>`,
+    "",
+    "<b>Last 24 hours</b>",
+    `🆕 New users · <code>${todayUsers}</code>`,
+    `🛍 Orders · <code>${todayOrders}</code>`,
+    `💰 Deposits · <code>${todayDeposits}</code>`,
+    "",
+    "<b>Money</b>",
+    `💳 Wallet liability · <code>${money(totals.balance)}</code>`,
+    `⬆️ Lifetime deposits · <code>${money(totals.deposited)}</code>`,
+    `⬇️ Lifetime spend · <code>${money(totals.spent)}</code>`,
+    DIVIDER,
+  ].join("\n");
+
+  return { text, keyboard: backRow() };
+}
+
+export async function adminUsers(page = 0): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const size = 10;
+  const { data, count } = await supabaseAdmin
+    .from("bot_users")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(page * size, page * size + size - 1);
+
+  const lines = ["<b>👥 Users</b>", DIVIDER];
+  for (const user of (data ?? []) as any[]) {
+    lines.push(
+      `<b>${escapeHtml(user.first_name ?? "User")}</b> ${user.username ? "@" + escapeHtml(user.username) : ""}`,
+      `   🆔 <code>${user.telegram_id}</code> · 💰 <code>${money(Number(user.balance))}</code> · ⬇️ <code>${money(Number(user.total_spent))}</code>`,
+    );
+  }
+  if (!data?.length) lines.push("<i>No users yet.</i>");
+  lines.push(DIVIDER, `Total · <code>${count ?? 0}</code>`);
+
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / size));
+  const nav: InlineKeyboard[number] = [];
+  if (page > 0) nav.push({ text: "◀️", callback_data: `a:users:${page - 1}` });
+  nav.push({ text: `${page + 1}/${totalPages}`, callback_data: "noop" });
+  if (page < totalPages - 1) nav.push({ text: "▶️", callback_data: `a:users:${page + 1}` });
+
+  return { text: lines.join("\n"), keyboard: [nav, ...backRow()] };
+}
+
+export async function adminOrders(page = 0): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const size = 8;
+  const { data, count } = await supabaseAdmin
+    .from("bot_orders")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(page * size, page * size + size - 1);
+
+  const lines = ["<b>📦 Latest Orders</b>", DIVIDER];
+  for (const order of (data ?? []) as any[]) {
+    lines.push(
+      `#${order.provider_order_id ?? "—"} · <code>${money(Number(order.charge))}</code> · ${escapeHtml(order.status)}`,
+      `   👤 <code>${order.telegram_id}</code> · ${escapeHtml(String(order.service_name).slice(0, 48))}`,
+    );
+  }
+  if (!data?.length) lines.push("<i>No orders yet.</i>");
+  lines.push(DIVIDER, `Total · <code>${count ?? 0}</code>`);
+
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / size));
+  const nav: InlineKeyboard[number] = [];
+  if (page > 0) nav.push({ text: "◀️", callback_data: `a:orders:${page - 1}` });
+  nav.push({ text: `${page + 1}/${totalPages}`, callback_data: "noop" });
+  if (page < totalPages - 1) nav.push({ text: "▶️", callback_data: `a:orders:${page + 1}` });
+
+  return { text: lines.join("\n"), keyboard: [nav, ...backRow()] };
+}
+
+export async function adminDeposits(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const { data } = await supabaseAdmin
+    .from("bot_deposits")
+    .select("*")
+    .eq("status", "confirmed")
+    .order("confirmed_at", { ascending: false })
+    .limit(10);
+
+  const lines = ["<b>💰 Recent Confirmed Deposits</b>", DIVIDER];
+  for (const dep of (data ?? []) as any[]) {
+    lines.push(
+      `<code>${money(Number(dep.amount_credited))}</code> · 👤 <code>${dep.telegram_id}</code>`,
+      `   🔗 <code>${String(dep.tx_hash).slice(0, 18)}…</code>`,
+    );
+  }
+  if (!data?.length) lines.push("<i>No confirmed deposits yet.</i>");
+  return { text: lines.join("\n"), keyboard: backRow() };
+}
+
+export async function adminTickets(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const { data } = await supabaseAdmin
+    .from("bot_tickets")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const lines = ["<b>🎫 Reports & Messages</b>", DIVIDER];
+  for (const ticket of (data ?? []) as any[]) {
+    lines.push(
+      `👤 <code>${ticket.telegram_id}</code> · ${new Date(ticket.created_at).toISOString().slice(0, 16).replace("T", " ")}`,
+      `<blockquote>${escapeHtml(String(ticket.message).slice(0, 300))}</blockquote>`,
+    );
+  }
+  if (!data?.length) lines.push("<i>No reports.</i>");
+  return { text: lines.join("\n"), keyboard: backRow() };
+}
+
+export async function adminProvider(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  try {
+    const balance = await providerBalance();
+    return {
+      text: [
+        "<b>🏦 Supply Account</b>",
+        DIVIDER,
+        `Available · <code>${Number(balance.balance).toFixed(4)} ${balance.currency}</code>`,
+        DIVIDER,
+        "<blockquote>Keep this funded — orders fail when it runs dry.</blockquote>",
+      ].join("\n"),
+      keyboard: backRow(),
+    };
+  } catch (error) {
+    return { text: `⚠️ Could not read supply balance.\n<code>${escapeHtml(String(error))}</code>`, keyboard: backRow() };
+  }
+}
+
+export async function adminRefreshCatalog(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const catalog = await getCatalog(true);
+  return {
+    text: [
+      "<b>♻️ Catalog Refreshed</b>",
+      DIVIDER,
+      `🛍 Services · <code>${catalog.services.size}</code>`,
+      `🗂 Categories · <code>${catalog.categories.length}</code>`,
+      DIVIDER,
+    ].join("\n"),
+    keyboard: backRow(),
+  };
+}
+
+export async function startBroadcast(chatId: number): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  await setState(chatId, "await_broadcast", {});
+  return {
+    text: [
+      "<b>📣 Broadcast</b>",
+      DIVIDER,
+      "Send the message now and it will be delivered to every user.",
+      "Send /cancel to abort.",
+    ].join("\n"),
+    keyboard: backRow(),
+  };
+}
+
+export async function runBroadcast(html: string): Promise<number> {
+  const { data } = await supabaseAdmin.from("bot_users").select("telegram_id").eq("is_banned", false);
+  let delivered = 0;
+  for (const row of (data ?? []) as { telegram_id: number }[]) {
+    const ok = await sendMessage(row.telegram_id, html);
+    if (ok) delivered += 1;
+  }
+  return delivered;
+}
+
+export async function notifyAdmins(text: string, effect?: string) {
+  for (const id of adminChatIds()) {
+    await sendMessage(id, text, effect ? { message_effect_id: effect } : {});
+  }
+}
