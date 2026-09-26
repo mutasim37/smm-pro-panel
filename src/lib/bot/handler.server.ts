@@ -286,7 +286,7 @@ async function askQuantity(chatId: number, service: Service) {
   );
 }
 
-async function showSummary(chatId: number, draft: { serviceId: number; link: string; quantity: number; comments?: string }) {
+async function showSummary(chatId: number, draft: { serviceId: number; link: string; quantity: number; comments?: string | undefined }) {
   const catalog = await getCatalog();
   const service = catalog.services.get(draft.serviceId);
   const user = await getUser(chatId);
@@ -318,7 +318,7 @@ async function showSummary(chatId: number, draft: { serviceId: number; link: str
 
 async function submitOrder(
   chatId: number,
-  draft: { serviceId: number; link: string; quantity: number; comments?: string; charge: number },
+  draft: { serviceId: number; link: string; quantity: number; comments?: string | undefined; charge: number },
 ) {
   const catalog = await getCatalog();
   const service = catalog.services.get(draft.serviceId);
@@ -939,8 +939,15 @@ async function handleCallback(query: any) {
             [{ text: "🛍 Services", callback_data: "svc" }],
           ]);
         }
-        if (a === "w") return submitOrder(chatId, state.data);
-        return sendInvoice(chatId, state.data.charge, "Order payment", state.data);
+        const draft = state.data as {
+          serviceId: number;
+          link: string;
+          quantity: number;
+          comments?: string;
+          charge: number;
+        };
+        if (a === "w") return submitOrder(chatId, draft);
+        return sendInvoice(chatId, draft.charge, "Order payment", draft);
       }
       case "ord":
         return showMyOrders(ctx, Number(a ?? 0));

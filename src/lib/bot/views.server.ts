@@ -147,7 +147,7 @@ export function summaryText(input: {
   quantity: number;
   charge: number;
   balance: number;
-  comments?: string;
+  comments?: string | undefined;
 }): string {
   const lines = [
     "<b>🧾 Order Summary</b>",

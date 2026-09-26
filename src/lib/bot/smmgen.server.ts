@@ -43,8 +43,8 @@ export function providerBalance() {
 export function placeOrder(input: {
   service: number;
   link: string;
-  quantity?: number;
-  comments?: string;
+  quantity?: number | undefined;
+  comments?: string | undefined;
 }) {
   const params: Record<string, string | number> = {
     action: "add",
