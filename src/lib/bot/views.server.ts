@@ -98,18 +98,17 @@ export function mainKeyboard(isAdmin: boolean) {
 }
 
 export function welcomeText(name: string, balance: number, orders: number): string {
+  const cur = currencies()[currentCurrency()];
   return [
-    `<b>⚡ ${BRAND.name}</b> — <i>${BRAND.tagline}</i>`,
+    `<b>${BRAND.name}</b>  ·  <i>${BRAND.tagline}</i>`,
     DIVIDER,
-    `Welcome back, <b>${escapeHtml(name)}</b> 👋`,
+    `Welcome, <b>${escapeHtml(name)}</b>`,
     "",
-    `💰 <b>Wallet</b> · <code>${money(balance)}</code>`,
-    `📦 <b>Orders</b> · <code>${orders}</code>`,
-    `🌍 <b>Coverage</b> · <code>7,000+ services</code>`,
-    "",
-    "<blockquote>Instant delivery · Automatic crypto top-up · 24/7 human support · Zero data sharing.</blockquote>",
+    `<b>Balance</b>      <code>${money(balance)}</code>`,
+    `<b>Orders</b>        <code>${orders}</code>`,
+    `<b>Currency</b>    <code>${cur.flag} ${cur.code}</code>`,
     DIVIDER,
-    "Tap a button below to begin.",
+    "<blockquote>Instant delivery · On-chain top-up · Live order tracking · Private by design</blockquote>",
   ].join("\n");
 }
 
