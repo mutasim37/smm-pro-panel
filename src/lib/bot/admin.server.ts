@@ -2,7 +2,7 @@
 import { adminChatIds, BRAND, EFFECTS } from "./config.server";
 import { escapeHtml, ik, sendMessage, sendPhoto, type InlineKeyboard } from "./telegram.server";
 import { BANNERS } from "./assets.server";
-import { DIVIDER, money } from "./views.server";
+import { DIVIDER, usd } from "./views.server";
 import { supabaseAdmin, setState } from "./store.server";
 import { providerBalance } from "./smmgen.server";
 import { getCatalog } from "./catalog.server";
@@ -29,6 +29,7 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "📣 Broadcast", callback_data: "a:broadcast" },
       { text: "♻️ Refresh Catalog", callback_data: "a:refresh" },
     ],
+    [{ text: "💵 Add / Deduct Balance", callback_data: "a:bal" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];
 }
@@ -234,6 +235,22 @@ export async function startBroadcast(chatId: number): Promise<{ text: string; ke
       "<b>📣 Broadcast</b>",
       DIVIDER,
       "Send the message now and it will be delivered to every user.",
+      "Send /cancel to abort.",
+    ].join("\n"),
+    keyboard: backRow(),
+  };
+}
+
+export async function startBalanceAdjust(chatId: number): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  await setState(chatId, "await_admin_bal", {});
+  return {
+    text: [
+      "<b>💵 Manual Balance Adjustment</b>",
+      DIVIDER,
+      "Send the user ID and the amount in <b>USD</b>, separated by a space.",
+      "",
+      "<blockquote>Add $10:  <code>123456789 10</code>\nDeduct $5:  <code>123456789 -5</code></blockquote>",
+      "",
       "Send /cancel to abort.",
     ].join("\n"),
     keyboard: backRow(),
