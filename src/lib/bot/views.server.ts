@@ -1,14 +1,85 @@
 // Message copy + keyboard builders. Keeps the bot voice consistent and premium.
-import { BRAND, PAYMENT_WINDOW_MINUTES, MAX_TX_AGE_HOURS, supportUsername } from "./config.server";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  BRAND,
+  PAYMENT_WINDOW_MINUTES,
+  MAX_TX_AGE_HOURS,
+  supportUsername,
+  currencies,
+  type CurrencyCode,
+} from "./config.server";
 import { escapeHtml, type InlineKeyboard } from "./telegram.server";
 import { PLATFORMS, type Service } from "./catalog.server";
 
 export const DIVIDER = "━━━━━━━━━━━━━━━━━━━━";
 
-export function money(value: number): string {
+/** Per-update display currency (values are always stored in USD). */
+export const currencyScope = new AsyncLocalStorage<{ code: CurrencyCode }>();
+
+export function currentCurrency(): CurrencyCode {
+  return currencyScope.getStore()?.code ?? "USD";
+}
+
+function format(valueUsd: number, code: CurrencyCode): string {
+  const cur = currencies()[code];
+  const value = valueUsd * cur.rate;
   const abs = Math.abs(value);
   const digits = abs > 0 && abs < 0.01 ? 5 : abs < 1 ? 4 : 2;
-  return `${BRAND.symbol}${value.toFixed(digits)}`;
+  const num = value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return `${cur.symbol}${num}`;
+}
+
+/** Format a USD amount in the user's chosen currency. */
+export function money(valueUsd: number): string {
+  return format(valueUsd, currentCurrency());
+}
+
+/** Always USD — used for admin views and blockchain amounts. */
+export function usd(valueUsd: number): string {
+  return format(valueUsd, "USD");
+}
+
+export function currencyPickerText(): string {
+  return [
+    `<b>${BRAND.name}</b>`,
+    DIVIDER,
+    "<b>Select your display currency</b>",
+    "",
+    "All prices, balances and order totals will be shown in the currency you choose. You can change it any time from <b>Profile</b>.",
+    DIVIDER,
+    "<blockquote>Payments are settled in USDT (BEP20). Local currencies are shown for convenience.</blockquote>",
+  ].join("\n");
+}
+
+export function currencyKeyboard(): InlineKeyboard {
+  const list = currencies();
+  return [
+    [{ text: `${list.BDT.flag} BDT · Taka`, callback_data: "cur:BDT" }],
+    [{ text: `${list.INR.flag} INR · Rupee`, callback_data: "cur:INR" }],
+    [{ text: `${list.USD.flag} USD · Dollar`, callback_data: "cur:USD" }],
+  ];
+}
+
+const STATUS_META: Record<string, { icon: string; label: string }> = {
+  pending: { icon: "🕓", label: "Pending" },
+  processing: { icon: "⚙️", label: "Processing" },
+  "in progress": { icon: "🚀", label: "In Progress" },
+  completed: { icon: "✅", label: "Completed" },
+  partial: { icon: "🟡", label: "Partial" },
+  canceled: { icon: "⛔", label: "Canceled" },
+  cancelled: { icon: "⛔", label: "Canceled" },
+  failed: { icon: "❌", label: "Failed" },
+};
+
+export function statusMeta(status: string | null | undefined) {
+  const key = String(status ?? "pending").toLowerCase();
+  return STATUS_META[key] ?? { icon: "🔹", label: String(status ?? "Unknown") };
+}
+
+export function progressBar(done: number, total: number): string {
+  const ratio = total > 0 ? Math.min(1, Math.max(0, done / total)) : 0;
+  const filled = Math.round(ratio * 10);
+  return `${"▰".repeat(filled)}${"▱".repeat(10 - filled)} ${Math.round(ratio * 100)}%`;
 }
 
 export function mainKeyboard(isAdmin: boolean) {
