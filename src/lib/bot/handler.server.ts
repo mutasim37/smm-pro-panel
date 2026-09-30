@@ -1,5 +1,6 @@
 // Core bot brain: routing, menus, order flow, wallet flow.
-import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername } from "./config.server";
+import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies } from "./config.server";
+import { syncOrder, FINAL_STATUSES, type OrderRow } from "./orders.server";
 import {
   answerCallback,
   escapeHtml,
@@ -20,7 +21,7 @@ import {
   priceFor,
   type Service,
 } from "./catalog.server";
-import { placeOrder, orderStatus } from "./smmgen.server";
+import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import {
   adjustBalance,
@@ -28,6 +29,7 @@ import {
   getState,
   getUser,
   setState,
+  setCurrency,
   supabaseAdmin,
   upsertUser,
   type BotUser,
@@ -35,6 +37,12 @@ import {
 import {
   DIVIDER,
   aboutText,
+  currencyKeyboard,
+  currencyPickerText,
+  currencyScope,
+  progressBar,
+  statusMeta,
+  usd,
   fundsText,
   invoiceText,
   mainKeyboard,
@@ -61,6 +69,7 @@ import {
   runBroadcast,
   sendAdminPanel,
   startBroadcast,
+  startBalanceAdjust,
 } from "./admin.server";
 
 const PAGE_SIZE = 10;
@@ -96,13 +105,14 @@ async function showHome(chatId: number, user: BotUser) {
   const keyboard: InlineKeyboard = [
     [{ text: "🛍 Browse Services", callback_data: "svc" }],
     [
+      { text: "🧾 Recent Orders", callback_data: "ord:0" },
       { text: "💳 Add Funds", callback_data: "dep" },
-      { text: "📦 My Orders", callback_data: "ord:0" },
     ],
     [
       { text: "👤 Profile", callback_data: "prof" },
-      { text: "🆘 Support", url: `https://t.me/${supportUsername()}` },
+      { text: "💱 Currency", callback_data: "cur" },
     ],
+    [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }],
   ];
 
   const sent = await sendPhoto(chatId, BANNERS.welcome, caption, {
@@ -224,9 +234,16 @@ async function showService(ctx: Ctx, serviceId: number) {
   ]);
 }
 
+/** Shorten by code points so emoji are never split (split surrogates break Telegram buttons). */
 function shorten(text: string, max: number): string {
-  const clean = text.replace(/[ᴺᴱᵂ]/g, "").replace(/\s+/g, " ").trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+  const clean = text
+    .replace(/&amp;/g, "&")
+    .replace(/[ᴺᴱᵂ]/g, "")
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const chars = Array.from(clean);
+  return chars.length > max ? `${chars.slice(0, max - 1).join("").trimEnd()}…` : clean;
 }
 
 /* ------------------------------- order flow ------------------------------- */
@@ -383,7 +400,7 @@ async function submitOrder(
       {
         message_effect_id: EFFECTS.party,
         reply_markup: ik([
-          [{ text: "📦 My Orders", callback_data: "ord:0" }],
+          [{ text: "📄 Track Order", callback_data: `od:${row?.id ?? ""}` }],
           [{ text: "🛍 Order More", callback_data: "svc" }, { text: "🏠 Home", callback_data: "home" }],
         ]),
       },
@@ -396,7 +413,7 @@ async function submitOrder(
         `👤 <code>${chatId}</code> ${user.username ? "@" + escapeHtml(user.username) : ""}`,
         `🆔 <code>${result.order}</code>`,
         `🛍 ${escapeHtml(service.name)}`,
-        `🔢 <code>${draft.quantity}</code> · 💵 <code>${money(draft.charge)}</code>`,
+        `🔢 <code>${draft.quantity}</code> · 💵 <code>${usd(draft.charge)}</code>`,
       ].join("\n"),
     );
   } catch (error) {
@@ -424,66 +441,127 @@ async function submitOrder(
 /* -------------------------------- my orders ------------------------------- */
 
 async function showMyOrders(ctx: Ctx, page: number) {
-  const size = 5;
+  const size = 8;
   const { data, count } = await supabaseAdmin
     .from("bot_orders")
-    .select("*", { count: "exact" })
+    .select("id, provider_order_id, service_name, status, charge, quantity, created_at", { count: "exact" })
     .eq("telegram_id", ctx.chatId)
     .order("created_at", { ascending: false })
     .range(page * size, page * size + size - 1);
 
-  const lines = ["<b>📦 My Orders</b>", DIVIDER];
-  const rows: InlineKeyboard = [];
+  const orders = (data ?? []) as any[];
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  const active = orders.filter((o) => !FINAL_STATUSES.includes(String(o.status).toLowerCase())).length;
 
-  for (const order of (data ?? []) as any[]) {
-    lines.push(
-      `🆔 <code>${order.provider_order_id ?? "pending"}</code> · <b>${escapeHtml(order.status)}</b>`,
-      `   ${escapeHtml(shorten(order.service_name, 46))}`,
-      `   🔢 <code>${order.quantity}</code> · 💵 <code>${money(Number(order.charge))}</code> · 📅 ${new Date(order.created_at).toISOString().slice(0, 10)}`,
-      "",
-    );
-    if (order.provider_order_id) {
-      rows.push([{ text: `🔄 Status #${order.provider_order_id}`, callback_data: `os:${order.provider_order_id}` }]);
-    }
+  const lines = [
+    "<b>🧾 Recent Orders</b>",
+    DIVIDER,
+    `Total <code>${total}</code>  ·  Active on this page <code>${active}</code>`,
+    "",
+  ];
+  if (!orders.length) {
+    lines.push("<i>You have not placed any orders yet.</i>");
+  } else {
+    lines.push("Tap an order to track it live, refresh its status or order it again.");
   }
-  if (!data?.length) lines.push("<i>You have no orders yet.</i>", "");
+  lines.push(DIVIDER);
 
-  const totalPages = Math.max(1, Math.ceil((count ?? 0) / size));
-  lines.push(DIVIDER, `Total orders · <code>${count ?? 0}</code>`);
+  const rows: InlineKeyboard = orders.map((order) => {
+    const meta = statusMeta(order.status);
+    return [
+      {
+        text: `${meta.icon} #${order.provider_order_id ?? "—"} · ${money(Number(order.charge))} · ${shorten(order.service_name, 28)}`,
+        callback_data: `od:${order.id}`,
+      },
+    ];
+  });
+  if (!orders.length) rows.push([{ text: "🛍 Browse Services", callback_data: "svc" }]);
 
   await respond(ctx, lines.join("\n"), [...rows, ...pager("ord", page, totalPages, "home")]);
 }
 
-async function showOrderStatus(ctx: Ctx, providerOrderId: string) {
-  try {
-    const status = await orderStatus(providerOrderId);
-    if (status.error) throw new Error(status.error);
-    await supabaseAdmin
-      .from("bot_orders")
-      .update({
-        status: status.status ?? "unknown",
-        start_count: status.start_count ?? null,
-        remains: status.remains ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("provider_order_id", providerOrderId)
-      .eq("telegram_id", ctx.chatId);
+async function loadOrder(chatId: number, id: string): Promise<OrderRow | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const { data } = await supabaseAdmin
+    .from("bot_orders")
+    .select("*")
+    .eq("id", id)
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  return (data as unknown as OrderRow) ?? null;
+}
 
-    await sendMessage(
-      ctx.chatId,
-      [
-        `<b>🔄 Order #${escapeHtml(providerOrderId)}</b>`,
-        DIVIDER,
-        `📊 <b>Status</b> · <b>${escapeHtml(status.status ?? "—")}</b>`,
-        `▶️ <b>Start count</b> · <code>${status.start_count ?? "—"}</code>`,
-        `⏳ <b>Remaining</b> · <code>${status.remains ?? "—"}</code>`,
-        DIVIDER,
-      ].join("\n"),
-      { reply_markup: ik([[{ text: "📦 My Orders", callback_data: "ord:0" }, { text: "🏠 Home", callback_data: "home" }]]) },
-    );
-  } catch (error) {
-    await sendMessage(ctx.chatId, `⚠️ Status unavailable right now.\n<code>${escapeHtml(String(error)).slice(0, 200)}</code>`);
+async function showOrderDetail(ctx: Ctx, id: string, forceRefresh: boolean) {
+  let order = await loadOrder(ctx.chatId, id);
+  if (!order) {
+    return respond(ctx, "⚠️ Order not found.", [[{ text: "🧾 Recent Orders", callback_data: "ord:0" }]]);
   }
+
+  const isFinal = FINAL_STATUSES.includes(String(order.status).toLowerCase());
+  if (order.provider_order_id && (forceRefresh || !isFinal)) {
+    try {
+      order = await syncOrder(order, false);
+    } catch (error) {
+      console.error("[orders] sync failed", error);
+    }
+  }
+
+  const meta = statusMeta(order.status);
+  const remains = Number(order.remains ?? order.quantity);
+  const delivered = String(order.status).toLowerCase() === "completed"
+    ? order.quantity
+    : Math.max(0, order.quantity - (Number.isFinite(remains) ? remains : order.quantity));
+  const time = new Date().toISOString().slice(11, 19);
+
+  const lines = [
+    `<b>📄 Order #${escapeHtml(order.provider_order_id ?? "pending")}</b>`,
+    DIVIDER,
+    `${meta.icon} <b>${meta.label}</b>`,
+    `<code>${progressBar(delivered, order.quantity)}</code>`,
+    "",
+    `🛍 <b>Service</b> · ${escapeHtml(shorten(order.service_name, 90))}`,
+    `🔗 <b>Link</b> · <code>${escapeHtml(order.link)}</code>`,
+    `🔢 <b>Quantity</b> · <code>${order.quantity.toLocaleString("en-US")}</code>`,
+    `▶️ <b>Start count</b> · <code>${order.start_count ?? "—"}</code>`,
+    `⏳ <b>Remaining</b> · <code>${order.remains ?? "—"}</code>`,
+    `💵 <b>Charged</b> · <code>${money(Number(order.charge))}</code>`,
+  ];
+  if (Number(order.refunded) > 0) lines.push(`💰 <b>Refunded</b> · <code>${money(Number(order.refunded))}</code>`);
+  lines.push(
+    `📅 <b>Placed</b> · <code>${new Date(order.created_at).toISOString().slice(0, 16).replace("T", " ")} UTC</code>`,
+    DIVIDER,
+    `<i>Last updated ${time} UTC · status updates automatically</i>`,
+  );
+
+  await respond(ctx, lines.join("\n"), [
+    [
+      { text: "🔄 Refresh", callback_data: `od:${order.id}:r` },
+      { text: "🔁 Order Again", callback_data: `re:${order.id}` },
+    ],
+    [
+      { text: "⬅️ Orders", callback_data: "ord:0" },
+      { text: "🏠 Home", callback_data: "home" },
+    ],
+  ]);
+}
+
+async function orderAgain(ctx: Ctx, id: string) {
+  const order = await loadOrder(ctx.chatId, id);
+  const catalog = await getCatalog();
+  const service = order ? catalog.services.get(order.service_id) : undefined;
+  if (!order || !service) {
+    return respond(ctx, "⚠️ This service is no longer available. Please pick another one.", [
+      [{ text: "🛍 Browse Services", callback_data: "svc" }, { text: "🏠 Home", callback_data: "home" }],
+    ]);
+  }
+  const quantity = Math.min(Math.max(order.quantity, service.min), service.max);
+  await showSummary(ctx.chatId, {
+    serviceId: service.id,
+    link: order.link,
+    quantity,
+    ...(order.comments ? { comments: order.comments } : {}),
+  });
 }
 
 /* --------------------------------- wallet --------------------------------- */
@@ -777,6 +855,54 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     return true;
   }
 
+  if (state.step === "await_admin_bal" && isAdmin(chatId)) {
+    const match = /^(\d{3,15})\s+(-?\d+(?:\.\d+)?)$/.exec(text.replace(/[$,]/g, "").trim());
+    if (!match) {
+      await sendMessage(chatId, "⚠️ Format: <code>USER_ID AMOUNT</code> — e.g. <code>123456789 10</code>");
+      return true;
+    }
+    const targetId = Number(match[1]);
+    const amount = Math.round(Number(match[2]) * 100000) / 100000;
+    const target = await getUser(targetId);
+    if (!target || amount === 0) {
+      await sendMessage(chatId, "⚠️ User not found or amount is zero.");
+      return true;
+    }
+    const balance = await adjustBalance(targetId, amount);
+    if (amount > 0) {
+      await supabaseAdmin
+        .from("bot_users")
+        .update({ total_deposited: Number(target.total_deposited) + amount })
+        .eq("telegram_id", targetId);
+    }
+    await supabaseAdmin.from("bot_deposits").insert({
+      telegram_id: targetId,
+      amount_credited: amount,
+      status: "confirmed",
+      note: `admin-manual by ${chatId}`,
+      confirmed_at: new Date().toISOString(),
+    });
+    await clearState(chatId);
+    await sendMessage(chatId, [
+      "<b>✅ Balance updated</b>",
+      DIVIDER,
+      `👤 <code>${targetId}</code> ${target.username ? "@" + escapeHtml(target.username) : ""}`,
+      `${amount > 0 ? "➕ Added" : "➖ Deducted"} · <code>${usd(Math.abs(amount))}</code>`,
+      `💰 New balance · <code>${usd(balance)}</code>`,
+    ].join("\n"), { reply_markup: ik([[{ text: "⬅️ Admin Panel", callback_data: "a:panel" }]]) });
+
+    const code = isCurrency(target.currency) ? target.currency : "USD";
+    await currencyScope.run({ code }, () =>
+      sendMessage(targetId, [
+        amount > 0 ? "<b>💰 Balance Credited</b>" : "<b>💳 Balance Adjusted</b>",
+        DIVIDER,
+        `${amount > 0 ? "Added" : "Deducted"} · <code>${money(Math.abs(amount))}</code>`,
+        `New balance · <code>${money(balance)}</code>`,
+      ].join("\n"), amount > 0 ? { message_effect_id: EFFECTS.party } : {}),
+    );
+    return true;
+  }
+
   if (state.step === "await_broadcast" && isAdmin(chatId)) {
     await clearState(chatId);
     const delivered = await runBroadcast(text);
@@ -800,6 +926,20 @@ const MENU: Record<string, "svc" | "ord" | "dep" | "prof" | "sup" | "about" | "a
 };
 
 export async function handleUpdate(update: any): Promise<void> {
+  const from = update.callback_query?.from ?? (update.message ?? update.edited_message)?.from;
+  let code: "USD" | "BDT" | "INR" = "USD";
+  if (from?.id) {
+    const { data } = await supabaseAdmin.from("bot_users").select("currency").eq("telegram_id", from.id).maybeSingle();
+    if (isCurrency(data?.currency)) code = data.currency;
+  }
+  return currencyScope.run({ code }, () => routeUpdate(update));
+}
+
+async function showCurrencyPicker(ctx: Ctx) {
+  await respond(ctx, currencyPickerText(), currencyKeyboard());
+}
+
+async function routeUpdate(update: any): Promise<void> {
   if (update.callback_query) return handleCallback(update.callback_query);
   const message = update.message ?? update.edited_message;
   if (!message?.from || message.from.is_bot) return;
@@ -835,6 +975,7 @@ export async function handleUpdate(update: any): Promise<void> {
 
   if (text === "/start" || text === "/home") {
     await clearState(chatId);
+    if (!isCurrency(user.currency)) return showCurrencyPicker({ chatId });
     await showHome(chatId, user);
     return;
   }
@@ -867,7 +1008,8 @@ export async function handleUpdate(update: any): Promise<void> {
     case "prof": {
       const fresh = (await getUser(chatId))!;
       return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
-        [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "🏠 Home", callback_data: "home" }],
+        [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
+        [{ text: "🏠 Home", callback_data: "home" }],
       ]);
     }
     case "sup":
@@ -902,8 +1044,7 @@ async function handleCallback(query: any) {
     fromPhoto: Boolean(query.message?.photo),
   };
 
-  await upsertUser(query.from);
-  await answerCallback(query.id);
+  await Promise.all([answerCallback(query.id), upsertUser(query.from)]);
 
   const [head, a, b] = data.split(":");
 
@@ -951,12 +1092,25 @@ async function handleCallback(query: any) {
       }
       case "ord":
         return showMyOrders(ctx, Number(a ?? 0));
-      case "os":
-        return showOrderStatus(ctx, a!);
+      case "od":
+        return showOrderDetail(ctx, a!, b === "r");
+      case "re":
+        return orderAgain(ctx, a!);
+      case "cur": {
+        if (!isCurrency(a)) return showCurrencyPicker(ctx);
+        await setCurrency(chatId, a);
+        const store = currencyScope.getStore();
+        if (store) store.code = a;
+        const cur = currencies()[a];
+        await respond(ctx, `✅ Display currency set to <b>${cur.flag} ${cur.label} (${cur.code})</b>.`);
+        const user = (await getUser(chatId))!;
+        return showHome(chatId, user);
+      }
       case "prof": {
         const fresh = (await getUser(chatId))!;
         return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
-          [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "🏠 Home", callback_data: "home" }],
+          [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
+          [{ text: "🏠 Home", callback_data: "home" }],
         ]);
       }
       case "dep":
@@ -988,6 +1142,7 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
     provider: adminProvider,
     refresh: adminRefreshCatalog,
     broadcast: () => startBroadcast(ctx.chatId),
+    bal: () => startBalanceAdjust(ctx.chatId),
   };
 
   const view = views[action];
