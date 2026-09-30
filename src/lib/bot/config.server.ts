@@ -33,6 +33,23 @@ export function depositAddress(): string {
   return env("USDT_BEP20_ADDRESS");
 }
 
+export type CurrencyCode = "USD" | "BDT" | "INR";
+
+/** Display currencies. All balances are stored in USD; these only change how values are shown. */
+export function currencies(): Record<CurrencyCode, { code: CurrencyCode; symbol: string; flag: string; label: string; rate: number }> {
+  const bdt = Number(process.env["BDT_RATE"] ?? "122");
+  const inr = Number(process.env["INR_RATE"] ?? "88");
+  return {
+    USD: { code: "USD", symbol: "$", flag: "🇺🇸", label: "US Dollar", rate: 1 },
+    BDT: { code: "BDT", symbol: "৳", flag: "🇧🇩", label: "Bangladeshi Taka", rate: Number.isFinite(bdt) && bdt > 0 ? bdt : 122 },
+    INR: { code: "INR", symbol: "₹", flag: "🇮🇳", label: "Indian Rupee", rate: Number.isFinite(inr) && inr > 0 ? inr : 88 },
+  };
+}
+
+export function isCurrency(value: unknown): value is CurrencyCode {
+  return value === "USD" || value === "BDT" || value === "INR";
+}
+
 /** Payment window in minutes for a direct-pay invoice. */
 export const PAYMENT_WINDOW_MINUTES = 8;
 /** Oldest on-chain transaction age accepted for verification. */

@@ -8,6 +8,13 @@
       "when": 1790411457956,
       "tag": "0000_create_smm_bot_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790745934094,
+      "tag": "0001_add_user_currency",
+      "breakpoints": true
     }
   ]
 }

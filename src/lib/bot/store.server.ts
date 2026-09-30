@@ -9,6 +9,7 @@ export type BotUser = {
   total_deposited: number;
   total_spent: number;
   is_banned: boolean;
+  currency: string | null;
   created_at: string;
 };
 
@@ -105,6 +106,10 @@ export async function setState(
 
 export async function clearState(telegramId: number) {
   await setState(telegramId, null, {});
+}
+
+export async function setCurrency(telegramId: number, currency: string) {
+  await supabaseAdmin.from("bot_users").update({ currency }).eq("telegram_id", telegramId);
 }
 
 export { supabaseAdmin };
