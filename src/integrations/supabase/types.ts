@@ -64,6 +64,7 @@ export type Database = {
           link: string
           provider_order_id: string | null
           quantity: number
+          refunded: number
           remains: string | null
           service_id: number
           service_name: string
@@ -82,6 +83,7 @@ export type Database = {
           link: string
           provider_order_id?: string | null
           quantity: number
+          refunded?: number
           remains?: string | null
           service_id: number
           service_name: string
@@ -100,6 +102,7 @@ export type Database = {
           link?: string
           provider_order_id?: string | null
           quantity?: number
+          refunded?: number
           remains?: string | null
           service_id?: number
           service_name?: string
@@ -177,6 +180,7 @@ export type Database = {
         Row: {
           balance: number
           created_at: string
+          currency: string | null
           first_name: string | null
           is_admin: boolean
           is_banned: boolean
@@ -191,6 +195,7 @@ export type Database = {
         Insert: {
           balance?: number
           created_at?: string
+          currency?: string | null
           first_name?: string | null
           is_admin?: boolean
           is_banned?: boolean
@@ -205,6 +210,7 @@ export type Database = {
         Update: {
           balance?: number
           created_at?: string
+          currency?: string | null
           first_name?: string | null
           is_admin?: boolean
           is_banned?: boolean
