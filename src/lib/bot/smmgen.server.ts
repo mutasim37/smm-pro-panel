@@ -56,13 +56,20 @@ export function placeOrder(input: {
   return call<{ order?: number; error?: string }>(params);
 }
 
+export type OrderStatus = {
+  charge?: string;
+  start_count?: string;
+  status?: string;
+  remains?: string;
+  currency?: string;
+  error?: string;
+};
+
 export function orderStatus(orderId: string) {
-  return call<{
-    charge?: string;
-    start_count?: string;
-    status?: string;
-    remains?: string;
-    currency?: string;
-    error?: string;
-  }>({ action: "status", order: orderId });
+  return call<OrderStatus>({ action: "status", order: orderId });
+}
+
+/** Batch status lookup (up to 100 ids). */
+export function orderStatuses(orderIds: string[]) {
+  return call<Record<string, OrderStatus>>({ action: "status", orders: orderIds.join(",") });
 }
