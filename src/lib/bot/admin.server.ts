@@ -95,9 +95,9 @@ export async function adminStats(): Promise<{ text: string; keyboard: InlineKeyb
     `💰 Deposits · <code>${todayDeposits}</code>`,
     "",
     "<b>Money</b>",
-    `💳 Wallet liability · <code>${money(totals.balance)}</code>`,
-    `⬆️ Lifetime deposits · <code>${money(totals.deposited)}</code>`,
-    `⬇️ Lifetime spend · <code>${money(totals.spent)}</code>`,
+    `💳 Wallet liability · <code>${usd(totals.balance)}</code>`,
+    `⬆️ Lifetime deposits · <code>${usd(totals.deposited)}</code>`,
+    `⬇️ Lifetime spend · <code>${usd(totals.spent)}</code>`,
     DIVIDER,
   ].join("\n");
 
@@ -116,7 +116,7 @@ export async function adminUsers(page = 0): Promise<{ text: string; keyboard: In
   for (const user of (data ?? []) as any[]) {
     lines.push(
       `<b>${escapeHtml(user.first_name ?? "User")}</b> ${user.username ? "@" + escapeHtml(user.username) : ""}`,
-      `   🆔 <code>${user.telegram_id}</code> · 💰 <code>${money(Number(user.balance))}</code> · ⬇️ <code>${money(Number(user.total_spent))}</code>`,
+      `   🆔 <code>${user.telegram_id}</code> · 💰 <code>${usd(Number(user.balance))}</code> · ⬇️ <code>${usd(Number(user.total_spent))}</code>`,
     );
   }
   if (!data?.length) lines.push("<i>No users yet.</i>");
@@ -142,7 +142,7 @@ export async function adminOrders(page = 0): Promise<{ text: string; keyboard: I
   const lines = ["<b>📦 Latest Orders</b>", DIVIDER];
   for (const order of (data ?? []) as any[]) {
     lines.push(
-      `#${order.provider_order_id ?? "—"} · <code>${money(Number(order.charge))}</code> · ${escapeHtml(order.status)}`,
+      `#${order.provider_order_id ?? "—"} · <code>${usd(Number(order.charge))}</code> · ${escapeHtml(order.status)}`,
       `   👤 <code>${order.telegram_id}</code> · ${escapeHtml(String(order.service_name).slice(0, 48))}`,
     );
   }
@@ -169,7 +169,7 @@ export async function adminDeposits(): Promise<{ text: string; keyboard: InlineK
   const lines = ["<b>💰 Recent Confirmed Deposits</b>", DIVIDER];
   for (const dep of (data ?? []) as any[]) {
     lines.push(
-      `<code>${money(Number(dep.amount_credited))}</code> · 👤 <code>${dep.telegram_id}</code>`,
+      `<code>${usd(Number(dep.amount_credited))}</code> · 👤 <code>${dep.telegram_id}</code>`,
       `   🔗 <code>${String(dep.tx_hash).slice(0, 18)}…</code>`,
     );
   }

@@ -71,7 +71,7 @@ function platformOf(category: string): string {
 }
 
 function clean(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+  return text.replace(/&amp;/g, "&").replace(/[ᴺᴱᵂ]/g, "").replace(/\s+/g, " ").trim();
 }
 
 function build(raw: ProviderService[]): Catalog {
