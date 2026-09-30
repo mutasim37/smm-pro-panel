@@ -113,6 +113,21 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_secrets: {
+        Row: {
+          name: string
+          value: string
+        }
+        Insert: {
+          name: string
+          value: string
+        }
+        Update: {
+          name?: string
+          value?: string
+        }
+        Relationships: []
+      }
       bot_service_cache: {
         Row: {
           id: number
