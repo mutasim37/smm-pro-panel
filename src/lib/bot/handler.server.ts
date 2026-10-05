@@ -851,15 +851,11 @@ async function verifyHash(chatId: number, hash: string) {
 
   let result;
   try {
-    result = await verifyUsdtDeposit(hash);
+    result = await withChecking(chatId, "🔗 VERIFYING ON BLOCKCHAIN…", () => verifyUsdtDeposit(hash));
   } catch (error) {
     await sendMessage(chatId, `⚠️ Blockchain nodes are busy. Please send the hash again in a moment.`);
     console.error("[deposit] rpc error", error);
     return;
-  }
-
-  if (progress && typeof (progress as any).message_id === "number") {
-    await tg("deleteMessage", { chat_id: chatId, message_id: (progress as any).message_id });
   }
 
   if (!result.ok) {
