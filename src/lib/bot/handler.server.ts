@@ -139,9 +139,8 @@ async function showHome(chatId: number, user: BotUser) {
   ];
 
   await clearLastScreen(chatId);
-  // Install the reply keyboard silently, then remove the helper message (keyboard stays).
-  const kb: any = await sendMessage(chatId, "⌨️", { reply_markup: mainKeyboard(isAdmin(chatId)) });
-  if (kb?.message_id) await dropMessage(chatId, kb.message_id);
+  // Persistent reply keyboard: keep this message so Telegram shows the menu buttons, not the typing keyboard.
+  await sendMessage(chatId, "👇 <b>Main menu</b>", { reply_markup: mainKeyboard(isAdmin(chatId)) });
   let sent: any = await sendPhoto(chatId, BANNERS.welcome, caption, {
     reply_markup: ik(keyboard),
     message_effect_id: EFFECTS.fire,
