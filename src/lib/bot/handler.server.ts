@@ -660,10 +660,46 @@ async function askBkashTrx(ctx: Ctx) {
   );
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Animated "checking" screen: sends a message, cycles progress frames, then removes it. */
+async function withChecking<T>(chatId: number, title: string, task: () => Promise<T>): Promise<T> {
+  const frames = [
+    `<b>${title}</b>\n\n<code>[□□□□□□□□□□]</code> 0%`,
+    `<b>${title}</b>\n\n<code>[■■□□□□□□□□]</code> 20%`,
+    `<b>${title}</b>\n\n<code>[■■■■□□□□□□]</code> 40%`,
+    `<b>${title}</b>\n\n<code>[■■■■■■□□□□]</code> 60%`,
+    `<b>${title}</b>\n\n<code>[■■■■■■■■□□]</code> 80%`,
+    `<b>${title}</b>\n\n<code>[■■■■■■■■■■]</code> 100%`,
+  ];
+  const msg = (await sendMessage(chatId, frames[0]!)) as any;
+  const mid: number | undefined = msg?.message_id;
+  let done = false;
+  const animate = (async () => {
+    for (let i = 1; i < frames.length && !done; i++) {
+      await sleep(420);
+      if (done || !mid) break;
+      await tg("editMessageText", {
+        chat_id: chatId,
+        message_id: mid,
+        text: frames[i],
+        parse_mode: "HTML",
+      }).catch(() => {});
+    }
+  })();
+  try {
+    return await task();
+  } finally {
+    done = true;
+    await animate.catch(() => {});
+    if (mid) await tg("deleteMessage", { chat_id: chatId, message_id: mid }).catch(() => {});
+  }
+}
+
 async function verifyBkash(chatId: number, trxId: string, data: Record<string, any>) {
   const amountBdt = Number(data["amountBdt"]);
   await sendChatAction(chatId);
-  const result = await claimBkash(chatId, trxId, amountBdt);
+  const result = await withChecking(chatId, "🔍 VERIFYING PAYMENT…", () => claimBkash(chatId, trxId, amountBdt));
   if (!result.ok) {
     const reasons: Record<string, string> = {
       used: "🚫 <b>Transaction already used.</b> This TrxID has already been credited.",
@@ -796,7 +832,6 @@ async function askHash(chatId: number) {
 async function verifyHash(chatId: number, hash: string) {
   const state = await getState(chatId);
   await sendChatAction(chatId);
-  const progress = await sendMessage(chatId, "⏳ <b>Verifying on the blockchain…</b>");
 
   const existing = await supabaseAdmin
     .from("bot_deposits")
@@ -816,15 +851,11 @@ async function verifyHash(chatId: number, hash: string) {
 
   let result;
   try {
-    result = await verifyUsdtDeposit(hash);
+    result = await withChecking(chatId, "🔗 VERIFYING ON BLOCKCHAIN…", () => verifyUsdtDeposit(hash));
   } catch (error) {
     await sendMessage(chatId, `⚠️ Blockchain nodes are busy. Please send the hash again in a moment.`);
     console.error("[deposit] rpc error", error);
     return;
-  }
-
-  if (progress && typeof (progress as any).message_id === "number") {
-    await tg("deleteMessage", { chat_id: chatId, message_id: (progress as any).message_id });
   }
 
   if (!result.ok) {
