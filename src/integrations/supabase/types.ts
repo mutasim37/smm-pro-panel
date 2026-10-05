@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_bkash_sms: {
+        Row: {
+          amount_bdt: number
+          body: string
+          claimed_at: string | null
+          claimed_by: number | null
+          id: string
+          received_at: string
+          sender: string | null
+          trx_id: string
+        }
+        Insert: {
+          amount_bdt: number
+          body: string
+          claimed_at?: string | null
+          claimed_by?: number | null
+          id?: string
+          received_at?: string
+          sender?: string | null
+          trx_id: string
+        }
+        Update: {
+          amount_bdt?: number
+          body?: string
+          claimed_at?: string | null
+          claimed_by?: number | null
+          id?: string
+          received_at?: string
+          sender?: string | null
+          trx_id?: string
+        }
+        Relationships: []
+      }
       bot_deposits: {
         Row: {
           amount_credited: number | null
