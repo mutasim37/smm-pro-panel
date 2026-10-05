@@ -81,13 +81,35 @@ type Ctx = {
   fromPhoto?: boolean;
 };
 
+/** Last bot screen per chat (best effort) so a new screen replaces the old one. */
+const lastScreen = new Map<number, number>();
+
+export async function dropMessage(chatId: number, messageId?: number) {
+  if (!messageId) return;
+  await tg("deleteMessage", { chat_id: chatId, message_id: messageId });
+}
+
+function remember(chatId: number, sent: any) {
+  if (sent?.message_id) lastScreen.set(chatId, sent.message_id);
+}
+
+async function clearLastScreen(chatId: number) {
+  const id = lastScreen.get(chatId);
+  if (id) {
+    lastScreen.delete(chatId);
+    await dropMessage(chatId, id);
+  }
+}
+
 async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
   const markup = keyboard ? { reply_markup: ik(keyboard) } : {};
   if (ctx.messageId && !ctx.fromPhoto) {
     const edited = await editMessage(ctx.chatId, ctx.messageId, text, markup);
-    if (edited) return;
+    if (edited) return remember(ctx.chatId, edited);
   }
-  await sendMessage(ctx.chatId, text, markup);
+  if (ctx.messageId) await dropMessage(ctx.chatId, ctx.messageId);
+  else await clearLastScreen(ctx.chatId);
+  remember(ctx.chatId, await sendMessage(ctx.chatId, text, markup));
 }
 
 async function ordersCount(telegramId: number): Promise<number> {
@@ -116,14 +138,16 @@ async function showHome(chatId: number, user: BotUser) {
     [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }],
   ];
 
-  const sent = await sendPhoto(chatId, BANNERS.welcome, caption, {
+  await clearLastScreen(chatId);
+  // Install the reply keyboard silently, then remove the helper message (keyboard stays).
+  const kb: any = await sendMessage(chatId, "⌨️", { reply_markup: mainKeyboard(isAdmin(chatId)) });
+  if (kb?.message_id) await dropMessage(chatId, kb.message_id);
+  let sent: any = await sendPhoto(chatId, BANNERS.welcome, caption, {
     reply_markup: ik(keyboard),
     message_effect_id: EFFECTS.fire,
   });
-  if (!sent) await sendMessage(chatId, caption, { reply_markup: ik(keyboard) });
-  await sendMessage(chatId, "⌨️ <i>Your control keyboard is ready.</i>", {
-    reply_markup: mainKeyboard(isAdmin(chatId)),
-  });
+  if (!sent) sent = await sendMessage(chatId, caption, { reply_markup: ik(keyboard) });
+  remember(chatId, sent);
 }
 
 /* -------------------------------- catalog -------------------------------- */
@@ -1135,7 +1159,9 @@ async function routeUpdate(update: any): Promise<void> {
       return;
     }
     await clearState(chatId);
-    await sendAdminPanel(chatId);
+    await dropMessage(chatId, message.message_id);
+    await clearLastScreen(chatId);
+    remember(chatId, await sendAdminPanel(chatId));
     return;
   }
 
@@ -1146,6 +1172,7 @@ async function routeUpdate(update: any): Promise<void> {
   }
 
   const ctx: Ctx = { chatId };
+  if (MENU[text.toLowerCase()]) await dropMessage(chatId, message.message_id);
   switch (MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined)) {
     case "svc":
       await clearState(chatId);
@@ -1204,6 +1231,7 @@ async function handleCallback(query: any) {
       case "home": {
         await clearState(chatId);
         const user = (await getUser(chatId))!;
+        await dropMessage(chatId, ctx.messageId);
         return showHome(chatId, user);
       }
       case "svc":
@@ -1253,6 +1281,7 @@ async function handleCallback(query: any) {
         const cur = currencies()[a];
         await respond(ctx, `✅ Display currency set to <b>${cur.flag} ${cur.label} (${cur.code})</b>.`);
         const user = (await getUser(chatId))!;
+        await dropMessage(chatId, ctx.messageId);
         return showHome(chatId, user);
       }
       case "prof": {
@@ -1282,7 +1311,11 @@ async function handleCallback(query: any) {
 }
 
 async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
-  if (action === "panel") return sendAdminPanel(ctx.chatId);
+  if (action === "panel") {
+    await dropMessage(ctx.chatId, ctx.messageId);
+    remember(ctx.chatId, await sendAdminPanel(ctx.chatId));
+    return;
+  }
 
   const views: Record<string, () => Promise<{ text: string; keyboard: InlineKeyboard }>> = {
     stats: adminStats,
