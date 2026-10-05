@@ -23,6 +23,7 @@ import {
 } from "./catalog.server";
 import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
+import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
 import {
   adjustBalance,
   clearState,
@@ -570,10 +571,140 @@ async function showFunds(ctx: Ctx) {
   const user = await getUser(ctx.chatId);
   const address = depositAddress();
   await respond(ctx, fundsText(Number(user?.balance ?? 0), address), [
-    [{ text: "➕ Add Balance", callback_data: "dep:new" }],
+    [{ text: "💎 USDT (BEP20)", callback_data: "dep:new" }, { text: "📱 bKash (BDT)", callback_data: "dep:bk" }],
     [{ text: "🧾 I already paid — verify hash", callback_data: "dep:chk" }],
     [{ text: "🏠 Home", callback_data: "home" }],
   ]);
+}
+
+/* ---------------------------------- bKash --------------------------------- */
+
+async function askBkashAmount(ctx: Ctx) {
+  await setState(ctx.chatId, "await_bk_amount", {});
+  await respond(
+    ctx,
+    [
+      "<b>📱 bKash Deposit</b>",
+      DIVIDER,
+      "How much would you like to add? Send the amount in <b>Taka (BDT)</b>.",
+      "",
+      "<blockquote>Example: <code>500</code></blockquote>",
+    ].join("\n"),
+    [[{ text: "✖️ Cancel", callback_data: "cancel" }]],
+  );
+}
+
+async function showBkashInvoice(chatId: number, amountBdt: number) {
+  await setState(chatId, "await_bk_pay", { amountBdt });
+  const rate = currencies().BDT.rate;
+  await sendMessage(
+    chatId,
+    [
+      "<b>📱 bKash PAYMENT</b>",
+      DIVIDER,
+      `💵 <b>Amount</b> · <code>৳${amountBdt.toFixed(2)}</code>`,
+      `💰 <b>You receive</b> · <code>$${(amountBdt / rate).toFixed(4)}</code>`,
+      "",
+      "📲 <b>Send Money to this bKash number:</b>",
+      `<code>${bkashNumber()}</code>  <i>(tap to copy)</i>`,
+      DIVIDER,
+      "<blockquote>1. Send the <b>exact</b> amount above via Send Money.\n2. Tap <b>Submit TrxID</b> and paste the Transaction ID from your bKash SMS.\n3. Your balance is credited instantly.</blockquote>",
+    ].join("\n"),
+    {
+      reply_markup: ik([
+        [{ text: "✅ Submit TrxID", callback_data: "dep:bkt" }],
+        [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }],
+      ]),
+    },
+  );
+}
+
+async function askBkashTrx(ctx: Ctx) {
+  const state = await getState(ctx.chatId);
+  const amountBdt = Number(state.data["amountBdt"]);
+  if (!amountBdt) return askBkashAmount(ctx);
+  await setState(ctx.chatId, "await_bk_trx", { amountBdt });
+  await sendMessage(
+    ctx.chatId,
+    [
+      "<b>🔍 bKash Verification</b>",
+      DIVIDER,
+      "Send your <b>bKash TrxID</b> now.",
+      "",
+      "<blockquote>Example: <code>9A1B2C3D4E</code> · Each TrxID can be used only once.</blockquote>",
+    ].join("\n"),
+    { reply_markup: ik([[{ text: "✖️ Cancel payment", callback_data: "cancel" }]]) },
+  );
+}
+
+async function verifyBkash(chatId: number, trxId: string, data: Record<string, any>) {
+  const amountBdt = Number(data["amountBdt"]);
+  await sendChatAction(chatId);
+  const result = await claimBkash(chatId, trxId, amountBdt);
+  if (!result.ok) {
+    const reasons: Record<string, string> = {
+      used: "🚫 <b>Transaction already used.</b> This TrxID has already been credited.",
+      not_found: "❌ <b>Payment not found.</b> We could not find this TrxID. If you just paid, wait a minute and try again.",
+      mismatch: `❌ <b>Amount mismatch.</b> This payment does not match the requested <code>৳${amountBdt.toFixed(2)}</code>.`,
+      too_old: "❌ <b>Transaction expired.</b> This payment is older than 72 hours.",
+    };
+    await sendMessage(
+      chatId,
+      [reasons[result.reason] ?? "❌ Payment not found.", DIVIDER, `Need help? Contact @${supportUsername()}`].join("\n"),
+      {
+        reply_markup: ik([
+          [{ text: "🔁 Try again", callback_data: "dep:bkt" }],
+          [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }],
+        ]),
+      },
+    );
+    await setState(chatId, "await_bk_pay", { amountBdt });
+    return;
+  }
+
+  const usdAmount = Math.round((result.amount / currencies().BDT.rate) * 10000) / 10000;
+  await supabaseAdmin.from("bot_deposits").insert({
+    telegram_id: chatId,
+    amount_requested: usdAmount,
+    amount_credited: usdAmount,
+    tx_hash: `bkash:${trxId.toUpperCase()}`,
+    status: "confirmed",
+    note: `bkash ৳${result.amount}`,
+    confirmed_at: new Date().toISOString(),
+  });
+  const balance = await adjustBalance(chatId, usdAmount);
+  const user = await getUser(chatId);
+  if (user) {
+    await supabaseAdmin
+      .from("bot_users")
+      .update({ total_deposited: Number(user.total_deposited) + usdAmount })
+      .eq("telegram_id", chatId);
+  }
+  await clearState(chatId);
+
+  await sendMessage(
+    chatId,
+    [
+      "<b>✅ bKash PAYMENT CONFIRMED</b>",
+      DIVIDER,
+      `📱 <b>Received</b> · <code>৳${result.amount.toFixed(2)}</code>`,
+      `💰 <b>New balance</b> · <code>${money(balance)}</code>`,
+      `🧾 <code>${trxId.toUpperCase()}</code>`,
+      DIVIDER,
+      "Thank you — your funds are ready to use.",
+    ].join("\n"),
+    { message_effect_id: EFFECTS.party },
+  );
+  await notifyAdmins(
+    [
+      "<b>💰 NEW bKash DEPOSIT</b>",
+      DIVIDER,
+      `👤 <code>${chatId}</code> ${user?.username ? "@" + escapeHtml(user.username) : ""}`,
+      `📱 <code>৳${result.amount.toFixed(2)}</code> → <code>$${usdAmount.toFixed(4)}</code>`,
+      `🧾 <code>${trxId.toUpperCase()}</code>`,
+    ].join("\n"),
+    EFFECTS.fire,
+  );
 }
 
 async function askDepositAmount(ctx: Ctx) {
@@ -833,6 +964,25 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       return true;
     }
     await verifyHash(chatId, text.trim());
+    return true;
+  }
+
+  if (state.step === "await_bk_amount") {
+    const amount = Number(text.replace(/[,৳\s]|tk/gi, ""));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      await sendMessage(chatId, "⚠️ Please send a valid amount in Taka, for example <code>500</code>.");
+      return true;
+    }
+    await showBkashInvoice(chatId, Math.round(amount * 100) / 100);
+    return true;
+  }
+
+  if (state.step === "await_bk_trx") {
+    if (!looksLikeTrxId(text)) {
+      await sendMessage(chatId, "⚠️ That is not a valid bKash TrxID. Example: <code>9A1B2C3D4E</code>");
+      return true;
+    }
+    await verifyBkash(chatId, text.trim(), state.data);
     return true;
   }
 
@@ -1116,6 +1266,8 @@ async function handleCallback(query: any) {
       case "dep":
         if (a === "new") return askDepositAmount(ctx);
         if (a === "chk") return askHash(chatId);
+        if (a === "bk") return askBkashAmount(ctx);
+        if (a === "bkt") return askBkashTrx(ctx);
         return showFunds(ctx);
       case "a": {
         if (!isAdmin(chatId)) return;

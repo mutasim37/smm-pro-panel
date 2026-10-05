@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicCronSyncOrdersRouteImport } from './routes/api/public/cron/sync-orders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBkashWebhookRoute = ApiPublicBkashWebhookRouteImport.update({
+  id: '/api/public/bkash/webhook',
+  path: '/api/public/bkash/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicCronSyncOrdersRoute = ApiPublicCronSyncOrdersRouteImport.update({
@@ -32,35 +38,47 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/api/public/cron/sync-orders' | '/api/public/telegram/webhook'
+    | '/'
+    | '/api/public/bkash/webhook'
+    | '/api/public/cron/sync-orders'
+    | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/cron/sync-orders' | '/api/public/telegram/webhook'
+  to:
+    | '/'
+    | '/api/public/bkash/webhook'
+    | '/api/public/cron/sync-orders'
+    | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronSyncOrdersRoute: typeof ApiPublicCronSyncOrdersRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -72,6 +90,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bkash/webhook': {
+      id: '/api/public/bkash/webhook'
+      path: '/api/public/bkash/webhook'
+      fullPath: '/api/public/bkash/webhook'
+      preLoaderRoute: typeof ApiPublicBkashWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron/sync-orders': {
@@ -93,6 +118,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronSyncOrdersRoute: ApiPublicCronSyncOrdersRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
