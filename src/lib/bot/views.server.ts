@@ -83,12 +83,13 @@ export function progressBar(done: number, total: number): string {
 }
 
 export function mainKeyboard(isAdmin: boolean) {
-  const rows: { text: string }[][] = [
+  const rows: { text: string }[][] = [];
+  if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
+  rows.push(
     [{ text: "🛍 Services" }, { text: "📦 My Orders" }],
     [{ text: "💳 Add Funds" }, { text: "👤 Profile" }],
     [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
-  ];
-  if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
+  );
   return {
     keyboard: rows,
     resize_keyboard: true,

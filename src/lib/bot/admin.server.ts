@@ -48,7 +48,8 @@ export async function sendAdminPanel(chatId: number) {
     reply_markup: ik(adminKeyboard()),
     message_effect_id: EFFECTS.fire,
   });
-  if (!sent) await sendMessage(chatId, caption, { reply_markup: ik(adminKeyboard()) });
+  if (sent) return sent;
+  return sendMessage(chatId, caption, { reply_markup: ik(adminKeyboard()) });
 }
 
 function backRow(): InlineKeyboard {
