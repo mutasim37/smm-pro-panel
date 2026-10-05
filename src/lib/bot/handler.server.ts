@@ -572,7 +572,6 @@ async function showFunds(ctx: Ctx) {
   const address = depositAddress();
   await respond(ctx, fundsText(Number(user?.balance ?? 0), address), [
     [{ text: "💎 USDT (BEP20)", callback_data: "dep:new" }, { text: "📱 bKash (BDT)", callback_data: "dep:bk" }],
-    [{ text: "🧾 I already paid — verify hash", callback_data: "dep:chk" }],
     [{ text: "🏠 Home", callback_data: "home" }],
   ]);
 }
