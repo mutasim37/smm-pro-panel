@@ -832,7 +832,6 @@ async function askHash(chatId: number) {
 async function verifyHash(chatId: number, hash: string) {
   const state = await getState(chatId);
   await sendChatAction(chatId);
-  const progress = await sendMessage(chatId, "⏳ <b>Verifying on the blockchain…</b>");
 
   const existing = await supabaseAdmin
     .from("bot_deposits")
