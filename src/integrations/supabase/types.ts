@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_admin_roles: {
+        Row: {
+          role: string
+          telegram_id: number
+        }
+        Insert: {
+          role?: string
+          telegram_id: number
+        }
+        Update: {
+          role?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       bot_bkash_sms: {
         Row: {
           amount_bdt: number
