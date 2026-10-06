@@ -1330,7 +1330,7 @@ async function routeUpdate(update: any): Promise<void> {
   const deep = /^(p|tg|ext)_(\d+)$/.exec(startPayload);
   if (deep) await setState(chatId, "deep_product", { serviceId: Number(deep[2]), kind: deep[1] });
 
-  if (!isAdmin(chatId) && !(await isJoined(chatId))) {
+  if (!(await isJoined(Number(message.from.id)))) {
     const gate = await joinGate();
     await dropMessage(chatId, message.message_id);
     await respond({ chatId }, gate.text, gate.keyboard);
@@ -1434,15 +1434,16 @@ async function handleCallback(query: any) {
     fromPhoto: Boolean(query.message?.photo),
   };
 
-  await Promise.all([answerCallback(query.id), upsertUser(query.from)]);
+  await upsertUser(query.from);
 
   const [head, a, b] = data.split(":");
 
-  if (!isAdmin(chatId) && !(await isJoined(chatId))) {
+  if (!(await isJoined(Number(query.from.id)))) {
     const gate = await joinGate();
-    if (head === "fj") await answerCallback(query.id, "❌ You haven't joined yet.", true).catch(() => null);
+    await answerCallback(query.id, head === "fj" ? "❌ Join the channel first, then tap Verify." : undefined, head === "fj");
     return respond(ctx, gate.text, gate.keyboard);
   }
+  await answerCallback(query.id, head === "fj" ? "✅ Membership verified." : undefined);
 
   try {
     switch (head) {
@@ -1475,7 +1476,8 @@ async function handleCallback(query: any) {
         return;
       }
       case "fj": {
-        const user = (await getUser(chatId))!;
+        const user = await getUser(chatId);
+        if (!user) return;
         await dropMessage(chatId, ctx.messageId);
         if (!isCurrency(user.currency)) return showCurrencyPicker({ chatId });
         if (await openDeepProduct(chatId)) return;

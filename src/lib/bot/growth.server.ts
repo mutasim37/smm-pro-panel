@@ -63,11 +63,11 @@ export async function joinGate(): Promise<{ text: string; keyboard: InlineKeyboa
       DIVIDER,
       `To use the bot, please join our official channel <b>${escapeHtml(channel)}</b>.`,
       "",
-      "After joining, tap <b>✅ I Have Joined</b>.",
+      "After joining, tap <b>✅ Verify Membership</b>. If you leave, access stays locked until you rejoin.",
     ].join("\n"),
     keyboard: [
       [{ text: "📢 Join Channel", url: `https://t.me/${channel.replace(/^@/, "")}` }],
-      [{ text: "✅ I Have Joined", callback_data: "fj" }],
+      [{ text: "✅ Verify Membership", callback_data: "fj" }],
     ],
   };
 }
