@@ -48,7 +48,7 @@ function Landing() {
             Premium social growth engine — running entirely inside Telegram.
           </p>
           <a
-            href="https://t.me/xnxoje"
+            href="https://t.me/Frreohi"
             className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             Contact Support
@@ -67,7 +67,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        XNOVA SMM · Automated social marketing · Support @xnxoje
+        XNOVA SMM · Automated social marketing · Support @Frreohi
       </footer>
     </main>
   );
