@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import { strict as assert } from "node:assert";
 import { checkMembership, type ChannelMember } from "./membership";
+
+const expect = (actual: unknown) => ({ toBe: (expected: unknown) => assert.equal(actual, expected) });
 
 describe("force join", () => {
   test("new and existing non-members are blocked", async () => {
