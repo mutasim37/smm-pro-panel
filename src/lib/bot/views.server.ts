@@ -87,6 +87,7 @@ export function mainKeyboard(isAdmin: boolean) {
   if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
   rows.push(
     [{ text: "🛍 Services" }, { text: "📱 Buy TG Account" }],
+    [{ text: "⚡ Lovable Extension" }],
     [{ text: "📦 My Orders" }, { text: "💳 Add Funds" }],
     [{ text: "👤 Profile" }, { text: "🆘 Support" }],
     [{ text: "ℹ️ About" }],
