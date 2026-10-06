@@ -6,7 +6,7 @@ import { DIVIDER, money, usd } from "./views.server";
 import { adjustBalance, getUser, setState, clearState, supabaseAdmin } from "./store.server";
 import { tgMultiplier } from "./settings.server";
 import { fastBuy, getAccount, loginCode, resetSessions, searchAccounts, PhoenixError, type TgItem } from "./phoenix.server";
-import { notifyAdmins } from "./admin.server";
+import { notifyAdmins, isAdmin } from "./admin.server";
 
 type Ctx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 
@@ -128,6 +128,7 @@ export async function showTgItem(ctx: Ctx, itemId: number) {
   if (balance >= price) rows.push([{ text: `💰 Pay from Wallet (${money(price)})`, callback_data: "tg:pay:w" }]);
   rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "tg:pay:b" }]);
   rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "tg:pay:d" }]);
+  if (isAdmin(ctx.chatId)) rows.push([{ text: "📢 Upload in Channel", callback_data: `post:tg:${itemId}` }]);
   rows.push([{ text: "⬅️ Back", callback_data: `tg:c:${item.telegram_country}:0` }, { text: "🏠 Home", callback_data: "home" }]);
   const lastSeen = item.telegram_last_seen ? new Date(item.telegram_last_seen * 1000).toISOString().slice(0, 10) : "—";
   await show(ctx, [
