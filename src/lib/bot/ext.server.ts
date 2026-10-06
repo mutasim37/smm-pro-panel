@@ -27,7 +27,8 @@ export async function listPackages(includeInactive = false): Promise<ExtPackage[
 }
 
 export function priceUsd(pkg: ExtPackage): number {
-  return Math.round((pkg.price_bdt / currencies().BDT.rate) * 10000) / 10000;
+  // price_bdt column holds the package price in USD.
+  return Math.round(pkg.price_bdt * 10000) / 10000;
 }
 
 function durationLabel(p: ExtPackage): string {
@@ -67,6 +68,7 @@ async function show(ctx: Ctx, text: string, keyboard: InlineKeyboard) {
 export async function showExtStore(ctx: Ctx) {
   const pkgs = await listPackages();
   const rows: InlineKeyboard = pkgs.map((p) => [{ text: `💎 ${p.name} · ${money(priceUsd(p))}`, callback_data: `ext:p:${p.id}` }]);
+  rows.push([{ text: "📦 Download Extension", callback_data: "ext:dl" }, { text: "📖 Setup Guide", callback_data: "ext:guide" }]);
   rows.push([{ text: "🔑 My Licenses", callback_data: "ext:my" }]);
   rows.push([{ text: "🏠 Home", callback_data: "home" }]);
   await show(ctx, [
@@ -162,7 +164,7 @@ export async function buyExtension(chatId: number, draft: { packageId: number; c
       "<b>⚡ EXTENSION SOLD</b>",
       DIVIDER,
       `👤 <code>${chatId}</code> ${user.username ? "@" + escapeHtml(user.username) : ""}`,
-      `💎 ${escapeHtml(pkg.name)} · ৳${pkg.price_bdt}`,
+      `💎 ${escapeHtml(pkg.name)} · $${pkg.price_bdt}`,
       `🔑 <code>${escapeHtml(lic.key)}</code>`,
     ].join("\n"));
   } catch (error) {
@@ -204,8 +206,7 @@ export async function downloadExtension(chatId: number) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!data) return sendMessage(chatId, "⚠️ Buy a license first to download the extension.");
-  return sendExtension(chatId, String(data.license_key));
+  return sendExtension(chatId, data ? String(data.license_key) : "your license key (buy a package first)");
 }
 
 /* --------------------------------- admin --------------------------------- */
@@ -237,7 +238,7 @@ export async function startExtAdd(chatId: number): Promise<{ text: string; keybo
     text: [
       "<b>➕ NEW PACKAGE</b>",
       DIVIDER,
-      "Send: <code>NAME | DURATION UNIT | PRICE_BDT</code>",
+      "Send: <code>NAME | DURATION UNIT | PRICE_USD</code>",
       `Units: ${UNITS.join(", ")} (use <code>120 month</code> for lifetime)`,
       "",
       "<blockquote>Example: <code>3 Months | 90 day | 5</code></blockquote>",
@@ -264,4 +265,23 @@ export async function deletePackage(id: number) {
   await supabaseAdmin.from("bot_ext_packages").update({ active: false }).eq("id", id);
   await supabaseAdmin.from("bot_ext_packages").delete().eq("id", id).eq("active", false);
   invalidatePackages();
+}
+
+export async function showExtGuide(ctx: Ctx) {
+  const { data } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "ext_guide_url").maybeSingle();
+  const rows: InlineKeyboard = [];
+  if (data?.value) rows.push([{ text: "▶️ Open Full Guide", url: String(data.value) }]);
+  rows.push([{ text: "📦 Download Extension", callback_data: "ext:dl" }]);
+  rows.push([{ text: "⬅️ Back", callback_data: "ext" }, { text: "🏠 Home", callback_data: "home" }]);
+  await show(ctx, [
+    "<b>📖 SETUP GUIDE</b>",
+    DIVIDER,
+    "1️⃣ Buy a package and copy your license key.",
+    "2️⃣ Tap <b>Download Extension</b> and extract the zip.",
+    "3️⃣ Chrome → <code>chrome://extensions</code> → enable <b>Developer mode</b>.",
+    "4️⃣ Click <b>Load unpacked</b> and select the extracted folder.",
+    "5️⃣ Open Lovable, open the extension and paste your license key.",
+    DIVIDER,
+    `Need help? @${supportUsername()}`,
+  ].join("\n"), rows);
 }

@@ -26,7 +26,7 @@ import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
-import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
+import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtGuide, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
 import {
   adjustBalance,
   clearState,
@@ -1340,6 +1340,7 @@ async function handleCallback(query: any) {
         if (a === "p") return showExtPackage(ctx, Number(b));
         if (a === "my") return showMyLicenses(ctx);
         if (a === "dl") return downloadExtension(chatId);
+        if (a === "guide") return showExtGuide(ctx);
         if (a === "pay") {
           const state = await getState(chatId);
           if (state.step !== "ext_confirm") return respond(ctx, "⚠️ This checkout expired. Please choose the package again.", [[{ text: "⚡ Extension Store", callback_data: "ext" }]]);
@@ -1347,7 +1348,7 @@ async function handleCallback(query: any) {
           if (!pkg) return respond(ctx, "⚠️ This package is no longer available.", [[{ text: "⚡ Extension Store", callback_data: "ext" }]]);
           const draft = { kind: "ext", packageId: pkg.id, charge: priceUsd(pkg) };
           if (b === "w") return buyExtension(chatId, draft);
-          if (b === "b") return showBkashInvoice(chatId, Math.ceil(pkg.price_bdt), draft);
+          if (b === "b") return showBkashInvoice(chatId, Math.ceil(draft.charge * currencies().BDT.rate), draft);
           return sendInvoice(chatId, draft.charge, "Extension payment", draft);
         }
         return;
