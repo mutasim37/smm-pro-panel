@@ -1,3 +1,4 @@
+import { rewardReferrer } from "./growth.server";
 // "Buy TG Account" shop: browse supplier stock, quote with admin multiplier, deliver + OTP.
 import { EFFECTS, supportUsername } from "./config.server";
 import { editMessage, escapeHtml, ik, sendChatAction, sendMessage, tg, type InlineKeyboard } from "./telegram.server";
@@ -196,6 +197,7 @@ export async function buyTgAccount(chatId: number, draft: { itemId: number; char
       message_effect_id: EFFECTS.party,
       reply_markup: ik(accountKeyboard(draft.itemId)),
     });
+    await rewardReferrer(chatId, draft.charge).catch(() => null);
     await notifyAdmins([
       "<b>📱 TG ACCOUNT SOLD</b>",
       DIVIDER,

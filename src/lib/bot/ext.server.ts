@@ -1,3 +1,4 @@
+import { rewardReferrer } from "./growth.server";
 // "Lovable Unlimited Extension" marketplace: admin-managed packages, Pro licenses from eklas, gated download.
 import { EFFECTS, currencies, supportUsername } from "./config.server";
 import { editMessage, escapeHtml, ik, sendChatAction, sendMessage, tg, type InlineKeyboard } from "./telegram.server";
@@ -160,6 +161,7 @@ export async function buyExtension(chatId: number, draft: { packageId: number; c
       reply_markup: ik([[{ text: "🔑 My Licenses", callback_data: "ext:my" }, { text: "🏠 Home", callback_data: "home" }]]),
     });
     await sendExtension(chatId, lic.key);
+    await rewardReferrer(chatId, draft.charge).catch(() => null);
     await notifyAdmins([
       "<b>⚡ EXTENSION SOLD</b>",
       DIVIDER,

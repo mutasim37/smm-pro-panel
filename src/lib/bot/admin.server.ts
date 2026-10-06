@@ -38,7 +38,14 @@ export function adminKeyboard(): InlineKeyboard {
     [
       { text: "⚡ Extension Store", callback_data: "a:ext" },
     ],
-    [{ text: "💵 Add / Deduct Balance", callback_data: "a:bal" }],
+    [
+      { text: "🔥 Popular Pins", callback_data: "a:pop" },
+      { text: "📢 Force Channel", callback_data: "a:ch" },
+    ],
+    [
+      { text: "🎁 Referrals", callback_data: "a:ref" },
+      { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
+    ],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];
 }

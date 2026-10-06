@@ -43,6 +43,13 @@
       "when": 1791277029851,
       "tag": "0005_extension_marketplace",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791297970763,
+      "tag": "0006_growth_features",
+      "breakpoints": true
     }
   ]
 }

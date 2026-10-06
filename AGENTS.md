@@ -28,3 +28,4 @@
 - bKash deposits: an SMS-forwarder app POSTs official bKash SMS to `/api/public/bkash/webhook` (authed by `X-Bkash-Secret` = `bot_secrets.bkash_webhook`); `bot_bkash_sms.trx_id` UNIQUE + conditional `claimed_by IS NULL` update guarantee each TrxID credits once.
 
 - TG accounts are bought from the Phoenix supplier in `phoenix.server.ts` (key in `bot_secrets.phoenix_api_key`); wallet is charged first and refunded on any failure, live price re-checked before buying.
+- Growth features (deep links `start=p_ID`/`ref_ID`, popular pins `bot_popular`, referral reward, force-join channel in `bot_secrets.force_channel`) live in `growth.server.ts`; the referral reward is paid once, guarded by the conditional `ref_rewarded = false` update.
