@@ -82,17 +82,25 @@ export function progressBar(done: number, total: number): string {
   return `${"▰".repeat(filled)}${"▱".repeat(10 - filled)} ${Math.round(ratio * 100)}%`;
 }
 
-export function mainKeyboard(isAdmin: boolean) {
+export function mainKeyboard(isAdmin: boolean, page: 0 | 1 = 0) {
   const rows: { text: string }[][] = [];
-  if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
-  rows.push(
-    [{ text: "🛍 Services" }, { text: "📱 Buy TG Account" }],
-    [{ text: "⚡ Lovable Extension" }],
+  if (page === 1) {
+    rows.push(
+      [{ text: "⚡ Lovable Extension" }],
+      [{ text: "📱 Buy TG Account" }],
+      [{ text: "⬅️ Previous Page" }],
+    );
+  } else {
+    if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
+    rows.push(
+    [{ text: "🛍 Services" }],
     [{ text: "📦 My Orders" }, { text: "💳 Add Funds" }],
     [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }],
     [{ text: "👤 Profile" }, { text: "🎁 Refer & Earn" }],
     [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
+    [{ text: "➡️ Next Page" }],
   );
+  }
   return {
     keyboard: rows,
     resize_keyboard: true,

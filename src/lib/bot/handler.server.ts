@@ -132,30 +132,13 @@ async function ordersCount(telegramId: number): Promise<number> {
 async function showHome(chatId: number, user: BotUser) {
   const orders = await ordersCount(chatId);
   const caption = welcomeText(user.first_name ?? "friend", Number(user.balance), orders);
-  const keyboard: InlineKeyboard = [
-    [{ text: "🛍 Browse Services", callback_data: "svc" }, { text: "📱 Buy TG Account", callback_data: "tg" }],
-    [
-      { text: "🧾 Recent Orders", callback_data: "ord:0" },
-      { text: "💳 Add Funds", callback_data: "dep" },
-    ],
-    [
-      { text: "👤 Profile", callback_data: "prof" },
-      { text: "💱 Currency", callback_data: "cur" },
-    ],
-    [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🔥 Popular", callback_data: "pop" }],
-    [{ text: "⚡ Lovable Unlimited Extension", callback_data: "ext" }],
-    [{ text: "🎁 Refer & Earn", callback_data: "ref" }],
-    [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }],
-  ];
-
   await clearLastScreen(chatId);
   // Persistent reply keyboard: keep this message so Telegram shows the menu buttons, not the typing keyboard.
   await sendMessage(chatId, "👇 <b>Main menu</b>", { reply_markup: mainKeyboard(isAdmin(chatId)) });
   let sent: any = await sendPhoto(chatId, BANNERS.welcome, caption, {
-    reply_markup: ik(keyboard),
     message_effect_id: EFFECTS.fire,
   });
-  if (!sent) sent = await sendMessage(chatId, caption, { reply_markup: ik(keyboard) });
+  if (!sent) sent = await sendMessage(chatId, caption);
   remember(chatId, sent);
 }
 
@@ -1240,7 +1223,9 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "next" | "previous"> = {
+  "➡️ next page": "next",
+  "⬅️ previous page": "previous",
   "🔍 search by code": "find",
   "🔥 popular": "pop",
   "🎁 refer & earn": "ref",
@@ -1356,6 +1341,15 @@ async function routeUpdate(update: any): Promise<void> {
   const ctx: Ctx = { chatId };
   if (MENU[text.toLowerCase()]) await dropMessage(chatId, message.message_id);
   switch (MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined)) {
+    case "next":
+    case "previous": {
+      const page = MENU[text.toLowerCase()] === "next" ? 1 : 0;
+      await clearState(chatId);
+      await sendMessage(chatId, page === 1 ? "👇 <b>More products</b>" : "👇 <b>Main menu</b>", {
+        reply_markup: mainKeyboard(isAdmin(chatId), page),
+      });
+      return;
+    }
     case "svc":
       await clearState(chatId);
       return showPlatforms(ctx);
