@@ -975,6 +975,17 @@ async function verifyHash(chatId: number, hash: string) {
 
 /* ------------------------------ text pipeline ----------------------------- */
 
+async function channelPreview(ctx: Ctx, ref: ProductRef, customText?: string) {
+  const draft = await channelDraft(ref);
+  await setState(ctx.chatId, "channel_preview", { ref, customText });
+  const text = customText ? `${escapeHtml(customText)}\n\n${draft.caption}` : draft.caption;
+  return respond(ctx, `<b>📢 Post Preview · @allupdatexix</b>\n\n${text}`, [
+    [{ text: "🚀 Order Now", url: draft.url }],
+    [{ text: "📢 Publish to Channel", callback_data: "cp:send" }, { text: "✏️ Custom Text", callback_data: "cp:custom" }],
+    [{ text: "✖️ Cancel", callback_data: "cancel" }],
+  ]);
+}
+
 async function handleStep(chatId: number, text: string, state: { step: string | null; data: any }) {
   if (state.step === "await_channel_caption" && isAdmin(chatId)) {
     if (!text || text.length > 2000) {
