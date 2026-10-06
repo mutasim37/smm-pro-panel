@@ -6,7 +6,7 @@ const expect = (actual: unknown) => ({ toBe: (expected: unknown) => assert.equal
 
 describe("force join", () => {
   test("new and existing non-members are blocked", async () => {
-    for (const id of [101, 202]) {
+    for (const id of [101, 202, 8872393234, 7547369708]) {
       expect(await checkMembership("@channel", id, async () => ({ status: "left" }))).toBe(false);
     }
   });

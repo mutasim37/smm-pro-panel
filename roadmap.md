@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Remove admin force-join bypass and verify join/leave/rejoin checks for all users.
 - [x] Tighten force-join checks and test join/leave/error behavior.
 - [x] Keep all bottom buttons on one compact page and retain keyboard during navigation.
 - [x] Add admin product posting to @allupdatexix with default/custom captions and Order Now.
