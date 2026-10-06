@@ -93,11 +93,9 @@ export function mainKeyboard(isAdmin: boolean, page: 0 | 1 = 0) {
   } else {
     if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
     rows.push(
-    [{ text: "🛍 Services" }],
-    [{ text: "📦 My Orders" }, { text: "💳 Add Funds" }],
-    [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }],
-    [{ text: "👤 Profile" }, { text: "🎁 Refer & Earn" }],
-    [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
+    [{ text: "🛍 Services" }, { text: "📦 My Orders" }, { text: "💳 Add Funds" }],
+    [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }, { text: "👤 Profile" }],
+    [{ text: "🎁 Refer & Earn" }, { text: "🆘 Support" }, { text: "ℹ️ About" }],
     [{ text: "➡️ Next Page" }],
   );
   }

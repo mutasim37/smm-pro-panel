@@ -133,12 +133,13 @@ async function showHome(chatId: number, user: BotUser) {
   const orders = await ordersCount(chatId);
   const caption = welcomeText(user.first_name ?? "friend", Number(user.balance), orders);
   await clearLastScreen(chatId);
-  // Persistent reply keyboard: keep this message so Telegram shows the menu buttons, not the typing keyboard.
-  await sendMessage(chatId, "👇 <b>Main menu</b>", { reply_markup: mainKeyboard(isAdmin(chatId)) });
+  // Attach the persistent keyboard to the welcome screen rather than a duplicate menu message.
+  const reply_markup = mainKeyboard(isAdmin(chatId));
   let sent: any = await sendPhoto(chatId, BANNERS.welcome, caption, {
     message_effect_id: EFFECTS.fire,
+    reply_markup,
   });
-  if (!sent) sent = await sendMessage(chatId, caption);
+  if (!sent) sent = await sendMessage(chatId, caption, { reply_markup });
   remember(chatId, sent);
 }
 
@@ -1301,7 +1302,8 @@ async function routeUpdate(update: any): Promise<void> {
 
   if (!isAdmin(chatId) && !(await isJoined(chatId))) {
     const gate = await joinGate();
-    await sendMessage(chatId, gate.text, { reply_markup: ik(gate.keyboard) });
+    await dropMessage(chatId, message.message_id);
+    await respond({ chatId }, gate.text, gate.keyboard);
     return;
   }
 
@@ -1345,9 +1347,10 @@ async function routeUpdate(update: any): Promise<void> {
     case "previous": {
       const page = MENU[text.toLowerCase()] === "next" ? 1 : 0;
       await clearState(chatId);
-      await sendMessage(chatId, page === 1 ? "👇 <b>More products</b>" : "👇 <b>Main menu</b>", {
+      await clearLastScreen(chatId);
+      remember(chatId, await sendMessage(chatId, page === 1 ? "👇 <b>More products</b>" : "👇 <b>Main menu</b>", {
         reply_markup: mainKeyboard(isAdmin(chatId), page),
-      });
+      }));
       return;
     }
     case "svc":

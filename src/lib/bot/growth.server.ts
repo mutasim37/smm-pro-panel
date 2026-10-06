@@ -5,6 +5,7 @@ import { getCatalog } from "./catalog.server";
 import { getSettings } from "./settings.server";
 import { adjustBalance } from "./store.server";
 import { DIVIDER, money, usd } from "./views.server";
+import { checkMembership, type ChannelMember } from "./membership";
 
 /* ------------------------------ bot username ------------------------------ */
 
@@ -30,13 +31,10 @@ export function shareUrl(url: string, text: string): string {
 
 /* ---------------------------- force join channel --------------------------- */
 
-let channelCache: { value: string; at: number } | null = null;
 export async function forceChannel(): Promise<string> {
-  if (channelCache && Date.now() - channelCache.at < 60_000) return channelCache.value;
-  const { data } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "force_channel").maybeSingle();
-  const value = String(data?.value ?? "").trim();
-  channelCache = { value, at: Date.now() };
-  return value;
+  const { data, error } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "force_channel").maybeSingle();
+  if (error) throw new Error("Unable to read force-channel configuration");
+  return String(data?.value ?? "").trim();
 }
 
 export async function setForceChannel(input: string): Promise<string> {
@@ -45,26 +43,16 @@ export async function setForceChannel(input: string): Promise<string> {
   value = value.replace(/^https?:\/\/t\.me\//i, "").replace(/^@/, "").replace(/\/.*$/, "");
   if (value && !/^[A-Za-z0-9_]{4,64}$/.test(value)) throw new Error("Invalid channel username");
   const stored = value ? `@${value}` : "";
-  await supabaseAdmin.from("bot_secrets").upsert({ name: "force_channel", value: stored }, { onConflict: "name" });
-  channelCache = null;
-  joinedCache.clear();
+  const { error } = await supabaseAdmin.from("bot_secrets").upsert({ name: "force_channel", value: stored }, { onConflict: "name" });
+  if (error) throw new Error("Unable to save force channel");
   return stored;
 }
 
-const joinedCache = new Map<number, number>();
-/** True when no channel is set, or the user is a member. Positive results are cached 30s. */
+/** Always check live so leaving the channel blocks the next interaction. */
 export async function isJoined(userId: number): Promise<boolean> {
   const channel = await forceChannel();
-  if (!channel) return true;
-  const at = joinedCache.get(userId);
-  if (at && Date.now() - at < 30_000) return true;
-  const member = await tg<{ status: string }>("getChatMember", { chat_id: channel, user_id: userId });
-  // If the bot can't read the channel (not admin), don't lock everyone out.
-  if (!member) return true;
-  const ok = ["creator", "administrator", "member"].includes(member.status) || (member as any).is_member === true;
-  if (ok) joinedCache.set(userId, Date.now());
-  else joinedCache.delete(userId);
-  return ok;
+  return checkMembership(channel, userId, (chat_id, user_id) =>
+    tg<ChannelMember>("getChatMember", { chat_id, user_id }));
 }
 
 export async function joinGate(): Promise<{ text: string; keyboard: InlineKeyboard }> {
