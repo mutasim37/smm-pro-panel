@@ -86,9 +86,10 @@ export function mainKeyboard(isAdmin: boolean) {
   const rows: { text: string }[][] = [];
   if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
   rows.push(
-    [{ text: "🛍 Services" }, { text: "📦 My Orders" }],
-    [{ text: "💳 Add Funds" }, { text: "👤 Profile" }],
-    [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
+    [{ text: "🛍 Services" }, { text: "📱 Buy TG Account" }],
+    [{ text: "📦 My Orders" }, { text: "💳 Add Funds" }],
+    [{ text: "👤 Profile" }, { text: "🆘 Support" }],
+    [{ text: "ℹ️ About" }],
   );
   return {
     keyboard: rows,
