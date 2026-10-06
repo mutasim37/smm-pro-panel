@@ -209,6 +209,21 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_popular: {
+        Row: {
+          created_at: string
+          service_id: number
+        }
+        Insert: {
+          created_at?: string
+          service_id: number
+        }
+        Update: {
+          created_at?: string
+          service_id?: number
+        }
+        Relationships: []
+      }
       bot_secrets: {
         Row: {
           name: string
@@ -352,6 +367,9 @@ export type Database = {
           language_code: string | null
           last_name: string | null
           last_seen_at: string
+          ref_earned: number
+          ref_rewarded: boolean
+          referred_by: number | null
           telegram_id: number
           total_deposited: number
           total_spent: number
@@ -367,6 +385,9 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
           telegram_id: number
           total_deposited?: number
           total_spent?: number
@@ -382,6 +403,9 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
           telegram_id?: number
           total_deposited?: number
           total_spent?: number
