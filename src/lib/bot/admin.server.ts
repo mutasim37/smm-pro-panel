@@ -35,6 +35,9 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "⚙️ Pricing & Markup", callback_data: "a:pricing" },
       { text: "📱 TG Store", callback_data: "a:tgstore" },
     ],
+    [
+      { text: "⚡ Extension Store", callback_data: "a:ext" },
+    ],
     [{ text: "💵 Add / Deduct Balance", callback_data: "a:bal" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];

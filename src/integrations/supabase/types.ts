@@ -86,6 +86,69 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_ext_licenses: {
+        Row: {
+          charge: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          license_key: string
+          package_id: number | null
+          package_name: string
+          telegram_id: number
+        }
+        Insert: {
+          charge: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key: string
+          package_id?: number | null
+          package_name: string
+          telegram_id: number
+        }
+        Update: {
+          charge?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key?: string
+          package_id?: number | null
+          package_name?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot_ext_packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration_unit: string
+          duration_value: number
+          id: number
+          name: string
+          price_bdt: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration_unit: string
+          duration_value: number
+          id?: number
+          name: string
+          price_bdt: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration_unit?: string
+          duration_value?: number
+          id?: number
+          name?: string
+          price_bdt?: number
+        }
+        Relationships: []
+      }
       bot_orders: {
         Row: {
           category: string | null

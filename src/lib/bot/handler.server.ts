@@ -26,6 +26,7 @@ import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
+import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
 import {
   adjustBalance,
   clearState,
@@ -140,6 +141,7 @@ async function showHome(chatId: number, user: BotUser) {
       { text: "👤 Profile", callback_data: "prof" },
       { text: "💱 Currency", callback_data: "cur" },
     ],
+    [{ text: "⚡ Lovable Unlimited Extension", callback_data: "ext" }],
     [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }],
   ];
 
@@ -507,6 +509,7 @@ async function showMyOrders(ctx: Ctx, page: number) {
     ];
   });
   if (!orders.length) rows.push([{ text: "🛍 Browse Services", callback_data: "svc" }]);
+  rows.push([{ text: "📂 My TG Accounts", callback_data: "tg:my:0" }, { text: "🔑 My Licenses", callback_data: "ext:my" }]);
 
   await respond(ctx, lines.join("\n"), [...rows, ...pager("ord", page, totalPages, "home")]);
 }
@@ -774,6 +777,7 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
 
 async function completePending(chatId: number, pending: any) {
   if (pending?.kind === "tg") return buyTgAccount(chatId, pending);
+  if (pending?.kind === "ext") return buyExtension(chatId, pending);
   return submitOrder(chatId, pending);
 }
 
@@ -1132,6 +1136,18 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     return true;
   }
 
+  if (state.step === "await_admin_ext" && isAdmin(chatId)) {
+    const err = await addPackageFromText(text);
+    if (err) {
+      await sendMessage(chatId, err);
+      return true;
+    }
+    await clearState(chatId);
+    const view = await adminExtStore();
+    await sendMessage(chatId, `✅ <b>Package added.</b>\n\n${view.text}`, { reply_markup: ik(view.keyboard) });
+    return true;
+  }
+
   if (state.step === "await_broadcast" && isAdmin(chatId)) {
     await clearState(chatId);
     const delivered = await runBroadcast(text);
@@ -1144,9 +1160,10 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ord" | "dep" | "prof" | "sup" | "about" | "admin"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin"> = {
   "🛍 services": "svc",
   "📱 buy tg account": "tg",
+  "⚡ lovable extension": "ext",
   "📦 my orders": "ord",
   "💳 add funds": "dep",
   "👤 profile": "prof",
@@ -1237,6 +1254,9 @@ async function routeUpdate(update: any): Promise<void> {
     case "tg":
       await clearState(chatId);
       return showTgCountries(ctx);
+    case "ext":
+      await clearState(chatId);
+      return showExtStore(ctx);
     case "ord":
       return showMyOrders(ctx, 0);
     case "dep":
@@ -1312,6 +1332,23 @@ async function handleCallback(query: any) {
           if (b === "w") return buyTgAccount(chatId, draft);
           if (b === "b") return showBkashInvoice(chatId, Math.ceil(draft.charge * currencies().BDT.rate), draft);
           return sendInvoice(chatId, draft.charge, "TG account payment", draft);
+        }
+        return;
+      }
+      case "ext": {
+        if (!a) return showExtStore(ctx);
+        if (a === "p") return showExtPackage(ctx, Number(b));
+        if (a === "my") return showMyLicenses(ctx);
+        if (a === "dl") return downloadExtension(chatId);
+        if (a === "pay") {
+          const state = await getState(chatId);
+          if (state.step !== "ext_confirm") return respond(ctx, "⚠️ This checkout expired. Please choose the package again.", [[{ text: "⚡ Extension Store", callback_data: "ext" }]]);
+          const pkg = (await listPackages()).find((p) => p.id === Number(state.data["packageId"]));
+          if (!pkg) return respond(ctx, "⚠️ This package is no longer available.", [[{ text: "⚡ Extension Store", callback_data: "ext" }]]);
+          const draft = { kind: "ext", packageId: pkg.id, charge: priceUsd(pkg) };
+          if (b === "w") return buyExtension(chatId, draft);
+          if (b === "b") return showBkashInvoice(chatId, Math.ceil(pkg.price_bdt), draft);
+          return sendInvoice(chatId, draft.charge, "Extension payment", draft);
         }
         return;
       }
@@ -1410,6 +1447,12 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
     tgstore: adminTgStore,
     psmm: () => startPricingEdit(ctx.chatId, "smm"),
     ptg: () => startPricingEdit(ctx.chatId, "tg"),
+    ext: adminExtStore,
+    extadd: () => startExtAdd(ctx.chatId),
+    extdel: async () => {
+      await deletePackage(page);
+      return adminExtStore();
+    },
   };
 
   const view = views[action];
