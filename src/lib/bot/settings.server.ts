@@ -1,8 +1,8 @@
 // Admin-editable pricing settings stored in bot_settings (cached briefly in memory).
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export type Settings = { smm_markup_pct: number; tg_multiplier: number };
-const DEFAULTS: Settings = { smm_markup_pct: 40, tg_multiplier: 3 };
+export type Settings = { smm_markup_pct: number; tg_multiplier: number; ref_pct: number };
+const DEFAULTS: Settings = { smm_markup_pct: 40, tg_multiplier: 3, ref_pct: 5 };
 const TTL_MS = 30 * 1000;
 let cache: { value: Settings; at: number } | null = null;
 

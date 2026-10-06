@@ -89,8 +89,9 @@ export function mainKeyboard(isAdmin: boolean) {
     [{ text: "🛍 Services" }, { text: "📱 Buy TG Account" }],
     [{ text: "⚡ Lovable Extension" }],
     [{ text: "📦 My Orders" }, { text: "💳 Add Funds" }],
-    [{ text: "👤 Profile" }, { text: "🆘 Support" }],
-    [{ text: "ℹ️ About" }],
+    [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }],
+    [{ text: "👤 Profile" }, { text: "🎁 Refer & Earn" }],
+    [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
   );
   return {
     keyboard: rows,
@@ -193,7 +194,7 @@ export function pager(
   ];
 }
 
-export function serviceCard(service: Service, emoji: string): string {
+export function serviceCard(service: Service, emoji: string, link?: string): string {
   const notes: string[] = [];
   if (service.refill) notes.push("♻️ Refill");
   if (service.cancel) notes.push("🛑 Cancel");
@@ -208,6 +209,8 @@ export function serviceCard(service: Service, emoji: string): string {
     `⚙️ <b>Type</b> · <code>${escapeHtml(service.type)}</code>`,
     `🛡 <b>Guarantee</b> · ${notes.join(" · ")}`,
     `🗂 <b>Category</b> · <i>${escapeHtml(service.category)}</i>`,
+    `🔢 <b>Product Code</b> · <code>${service.id}</code>`,
+    ...(link ? [`🔗 <b>Product Link</b> · <code>${link}</code>`] : []),
     DIVIDER,
     "<blockquote expandable>⏱ Start time is usually instant to 60 minutes. Delivery speed depends on the selected service. Never change your username or make the account private while an order is running.</blockquote>",
     "",

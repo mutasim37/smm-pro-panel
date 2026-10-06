@@ -26,6 +26,7 @@ import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
+import { adminChannel, adminPopular, adminReferrals, attachReferrer, isJoined, joinGate, popularIds, productLink, referralView, rewardReferrer, setForceChannel, shareUrl, togglePin } from "./growth.server";
 import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtGuide, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
 import {
   adjustBalance,
@@ -141,7 +142,9 @@ async function showHome(chatId: number, user: BotUser) {
       { text: "👤 Profile", callback_data: "prof" },
       { text: "💱 Currency", callback_data: "cur" },
     ],
+    [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🔥 Popular", callback_data: "pop" }],
     [{ text: "⚡ Lovable Unlimited Extension", callback_data: "ext" }],
+    [{ text: "🎁 Refer & Earn", callback_data: "ref" }],
     [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }],
   ];
 
@@ -173,7 +176,10 @@ async function showPlatforms(ctx: Ctx) {
     "<blockquote>All prices are in USD and already include our service fee — no hidden charges.</blockquote>",
   ].join("\n");
 
-  await respond(ctx, text, platformKeyboard(counts));
+  await respond(ctx, text, [
+    [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🔥 Popular", callback_data: "pop" }],
+    ...platformKeyboard(counts),
+  ]);
 }
 
 async function showCategories(ctx: Ctx, platformKey: string, page: number) {
@@ -256,12 +262,35 @@ async function showService(ctx: Ctx, serviceId: number) {
     list.includes(categoryIndex),
   )?.[0] ?? "other";
 
-  await respond(ctx, serviceCard(service, platformMeta(platformKey).emoji), [
+  const link = await productLink(service.id);
+  await respond(ctx, serviceCard(service, platformMeta(platformKey).emoji, link), [
     [{ text: "🚀 Order Now", callback_data: `buy:${service.id}` }],
+    [{ text: "📤 Share Product", url: shareUrl(link, service.name) }],
     [
       { text: "⬅️ Back", callback_data: `ct:${categoryIndex}:0` },
       { text: "🏠 Home", callback_data: "home" },
     ],
+  ]);
+}
+
+async function askCode(ctx: Ctx) {
+  await setState(ctx.chatId, "await_code", {});
+  await respond(ctx, ["<b>🔍 Search by Code</b>", DIVIDER, "Send the <b>product code</b> (e.g. <code>1250</code>).", "", "<i>You can find it on every product page.</i>"].join("\n"), [
+    [{ text: "🔥 Popular", callback_data: "pop" }, { text: "✖️ Cancel", callback_data: "cancel" }],
+  ]);
+}
+
+async function showPopular(ctx: Ctx) {
+  const catalog = await getCatalog();
+  const ids = await popularIds(20);
+  const rows: InlineKeyboard = ids.map((id) => {
+    const s = catalog.services.get(id)!;
+    return [{ text: `${money(s.price)} · ${shorten(s.name, 44)}`, callback_data: `sv:${s.id}` }];
+  });
+  await respond(ctx, ["<b>🔥 Popular Services</b>", DIVIDER, ids.length ? "Our best-sellers and staff picks — fast, reliable and easy to order." : "No popular services yet. Browse the catalog to get started."].join("\n"), [
+    ...rows,
+    [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🛍 All Services", callback_data: "svc" }],
+    [{ text: "🏠 Home", callback_data: "home" }],
   ]);
 }
 
@@ -438,6 +467,7 @@ async function submitOrder(
       },
     );
 
+    await rewardReferrer(chatId, draft.charge).catch(() => null);
     await notifyAdmins(
       [
         "<b>🛒 NEW ORDER</b>",
@@ -1148,6 +1178,56 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     return true;
   }
 
+  if (state.step === "await_code") {
+    const id = Number(text.replace(/[#\s]/g, ""));
+    if (!Number.isInteger(id) || !catalog.services.has(id)) {
+      await sendMessage(chatId, "⚠️ No product found with that code. Please check and send again, or tap /cancel.");
+      return true;
+    }
+    await clearState(chatId);
+    await showService({ chatId }, id);
+    return true;
+  }
+
+  if (state.step === "await_admin_pop" && isAdmin(chatId)) {
+    const id = Number(text.replace(/[#\s]/g, ""));
+    if (!Number.isInteger(id) || !catalog.services.has(id)) {
+      await sendMessage(chatId, "⚠️ Unknown product code. Send a valid code.");
+      return true;
+    }
+    await togglePin(id, true);
+    await clearState(chatId);
+    const view = await adminPopular();
+    await sendMessage(chatId, `✅ <b>Pinned #${id}.</b>\n\n${view.text}`, { reply_markup: ik(view.keyboard) });
+    return true;
+  }
+
+  if (state.step === "await_admin_ch" && isAdmin(chatId)) {
+    try {
+      await setForceChannel(text);
+    } catch {
+      await sendMessage(chatId, "⚠️ Send a channel username like <code>@mychannel</code>, or <code>off</code>.");
+      return true;
+    }
+    await clearState(chatId);
+    const view = await adminChannel();
+    await sendMessage(chatId, `✅ <b>Saved.</b>\n\n${view.text}`, { reply_markup: ik(view.keyboard) });
+    return true;
+  }
+
+  if (state.step === "await_admin_ref" && isAdmin(chatId)) {
+    const value = Number(text.replace(/[%\s]/g, ""));
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      await sendMessage(chatId, "⚠️ Send a percent between 0 and 100, e.g. <code>5</code>");
+      return true;
+    }
+    await setSetting("ref_pct", value);
+    await clearState(chatId);
+    const view = await adminReferrals();
+    await sendMessage(chatId, `✅ <b>Saved.</b>\n\n${view.text}`, { reply_markup: ik(view.keyboard) });
+    return true;
+  }
+
   if (state.step === "await_broadcast" && isAdmin(chatId)) {
     await clearState(chatId);
     const delivered = await runBroadcast(text);
@@ -1160,7 +1240,10 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref"> = {
+  "🔍 search by code": "find",
+  "🔥 popular": "pop",
+  "🎁 refer & earn": "ref",
   "🛍 services": "svc",
   "📱 buy tg account": "tg",
   "⚡ lovable extension": "ext",
@@ -1180,6 +1263,16 @@ export async function handleUpdate(update: any): Promise<void> {
     if (isCurrency(data?.currency)) code = data.currency;
   }
   return currencyScope.run({ code }, () => routeUpdate(update));
+}
+
+/** Opens a product shared via deep link (start=p_ID), if one is pending. */
+async function openDeepProduct(chatId: number): Promise<boolean> {
+  const state = await getState(chatId);
+  if (state.step !== "deep_product") return false;
+  await clearState(chatId);
+  await sendMessage(chatId, "👇 <b>Main menu</b>", { reply_markup: mainKeyboard(isAdmin(chatId)) });
+  await showService({ chatId }, Number(state.data["serviceId"]));
+  return true;
 }
 
 async function showCurrencyPicker(ctx: Ctx) {
@@ -1214,15 +1307,30 @@ async function routeUpdate(update: any): Promise<void> {
     );
   }
 
+  const startPayload = /^\/start(?:@\w+)?\s+(\S+)/.exec(text)?.[1] ?? "";
+  if (isNew && startPayload.startsWith("ref_")) {
+    const ref = await attachReferrer(chatId, startPayload);
+    if (ref) await sendMessage(ref, `🎉 <b>New referral joined!</b>\nYou'll earn a reward on their first purchase.`);
+  }
+  if (startPayload.startsWith("p_")) await setState(chatId, "deep_product", { serviceId: Number(startPayload.slice(2)) });
+
+  if (!isAdmin(chatId) && !(await isJoined(chatId))) {
+    const gate = await joinGate();
+    await sendMessage(chatId, gate.text, { reply_markup: ik(gate.keyboard) });
+    return;
+  }
+
   if (text === "/cancel") {
     await clearState(chatId);
     await sendMessage(chatId, "✖️ Cancelled.", { reply_markup: mainKeyboard(isAdmin(chatId)) });
     return;
   }
 
-  if (text === "/start" || text === "/home") {
-    await clearState(chatId);
+  if (text === "/start" || text === "/home" || text.startsWith("/start ")) {
+    const pending = await getState(chatId);
+    if (pending.step !== "deep_product") await clearState(chatId);
     if (!isCurrency(user.currency)) return showCurrencyPicker({ chatId });
+    if (await openDeepProduct(chatId)) return;
     await showHome(chatId, user);
     return;
   }
@@ -1276,6 +1384,15 @@ async function routeUpdate(update: any): Promise<void> {
       ]);
     case "about":
       return respond(ctx, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
+    case "find":
+      return askCode(ctx);
+    case "pop":
+      await clearState(chatId);
+      return showPopular(ctx);
+    case "ref": {
+      const view = await referralView(chatId);
+      return respond(ctx, view.text, view.keyboard);
+    }
     default:
       break;
   }
@@ -1304,10 +1421,32 @@ async function handleCallback(query: any) {
 
   const [head, a, b] = data.split(":");
 
+  if (!isAdmin(chatId) && !(await isJoined(chatId))) {
+    const gate = await joinGate();
+    if (head === "fj") await answerCallback(query.id, "❌ You haven't joined yet.", true).catch(() => null);
+    return respond(ctx, gate.text, gate.keyboard);
+  }
+
   try {
     switch (head) {
       case "noop":
         return;
+      case "fj": {
+        await clearState(chatId);
+        const user = (await getUser(chatId))!;
+        await dropMessage(chatId, ctx.messageId);
+        if (!isCurrency(user.currency)) return showCurrencyPicker({ chatId });
+        return showHome(chatId, user);
+      }
+      case "find":
+        return askCode(ctx);
+      case "pop":
+        await clearState(chatId);
+        return showPopular(ctx);
+      case "ref": {
+        const view = await referralView(chatId);
+        return respond(ctx, view.text, view.keyboard);
+      }
       case "home": {
         await clearState(chatId);
         const user = (await getUser(chatId))!;
@@ -1399,6 +1538,7 @@ async function handleCallback(query: any) {
         await respond(ctx, `✅ Display currency set to <b>${cur.flag} ${cur.label} (${cur.code})</b>.`);
         const user = (await getUser(chatId))!;
         await dropMessage(chatId, ctx.messageId);
+        if (await openDeepProduct(chatId)) return;
         return showHome(chatId, user);
       }
       case "prof": {
@@ -1450,6 +1590,29 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
     ptg: () => startPricingEdit(ctx.chatId, "tg"),
     ext: adminExtStore,
     extadd: () => startExtAdd(ctx.chatId),
+    pop: adminPopular,
+    popadd: async () => {
+      await setState(ctx.chatId, "await_admin_pop", {});
+      return { text: "<b>➕ Pin a Popular Service</b>\n\nSend the product code to pin.", keyboard: [[{ text: "⬅️ Back", callback_data: "a:pop" }]] };
+    },
+    popdel: async () => {
+      await togglePin(page, false);
+      return adminPopular();
+    },
+    ch: adminChannel,
+    chset: async () => {
+      await setState(ctx.chatId, "await_admin_ch", {});
+      return { text: "<b>📢 Set Force Channel</b>\n\nSend the channel username, e.g. <code>@mychannel</code>.\nMake sure the bot is an admin in that channel.", keyboard: [[{ text: "⬅️ Back", callback_data: "a:ch" }]] };
+    },
+    choff: async () => {
+      await setForceChannel("off");
+      return adminChannel();
+    },
+    ref: adminReferrals,
+    pref: async () => {
+      await setState(ctx.chatId, "await_admin_ref", {});
+      return { text: "<b>✏️ Referral Commission</b>\n\nSend the percent of a friend's first purchase paid to the referrer, e.g. <code>5</code>.", keyboard: [[{ text: "⬅️ Back", callback_data: "a:ref" }]] };
+    },
     extdel: async () => {
       await deletePackage(page);
       return adminExtStore();
