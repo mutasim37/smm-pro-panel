@@ -1,6 +1,6 @@
 // Catalog: loads the provider service list, groups it by platform + category,
 // applies the reseller markup and keeps everything in a warm in-memory cache.
-import { markupMultiplier } from "./config.server";
+import { smmMultiplier } from "./settings.server";
 import { fetchServices, type ProviderService } from "./smmgen.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -56,11 +56,13 @@ export type Catalog = {
   byCategory: Map<string, Service[]>;
   byPlatform: Map<string, number[]>; // platform key -> category indexes
   loadedAt: number;
+  multiplier: number;
 };
 
 const TTL_MS = 15 * 60 * 1000;
 let cache: Catalog | null = null;
 let inflight: Promise<Catalog> | null = null;
+let rawCache: ProviderService[] | null = null;
 
 function platformOf(category: string): string {
   const lower = category.toLowerCase();
@@ -74,8 +76,8 @@ function clean(text: string): string {
   return text.replace(/&amp;/g, "&").replace(/[ᴺᴱᵂ]/g, "").replace(/\s+/g, " ").trim();
 }
 
-function build(raw: ProviderService[]): Catalog {
-  const multiplier = markupMultiplier();
+function build(raw: ProviderService[], multiplier: number): Catalog {
+  rawCache = raw;
   const services = new Map<number, Service>();
   const byCategory = new Map<string, Service[]>();
 
@@ -110,7 +112,7 @@ function build(raw: ProviderService[]): Catalog {
     else byPlatform.set(key, [index]);
   });
 
-  return { services, categories, byCategory, byPlatform, loadedAt: Date.now() };
+  return { services, categories, byCategory, byPlatform, loadedAt: Date.now(), multiplier };
 }
 
 async function loadFromDb(): Promise<ProviderService[] | null> {
@@ -132,7 +134,16 @@ async function saveToDb(raw: ProviderService[]) {
 }
 
 export async function getCatalog(force = false): Promise<Catalog> {
-  if (!force && cache && Date.now() - cache.loadedAt < TTL_MS) return cache;
+  const multiplier = await smmMultiplier();
+  if (!force && cache && Date.now() - cache.loadedAt < TTL_MS) {
+    if (cache.multiplier === multiplier) return cache;
+    if (rawCache) {
+      const loadedAt = cache.loadedAt;
+      cache = build(rawCache, multiplier);
+      cache.loadedAt = loadedAt;
+      return cache;
+    }
+  }
   if (inflight) return inflight;
 
   inflight = (async () => {
@@ -140,12 +151,12 @@ export async function getCatalog(force = false): Promise<Catalog> {
       if (!force) {
         const stored = await loadFromDb();
         if (stored?.length) {
-          cache = build(stored);
+          cache = build(stored, multiplier);
           return cache;
         }
       }
       const fresh = await fetchServices();
-      cache = build(fresh);
+      cache = build(fresh, multiplier);
       saveToDb(fresh).catch((error) => console.error("[catalog] cache save failed", error));
       return cache;
     } catch (error) {
