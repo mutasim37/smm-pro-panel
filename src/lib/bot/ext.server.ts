@@ -4,7 +4,7 @@ import { EFFECTS, currencies, supportUsername } from "./config.server";
 import { editMessage, escapeHtml, ik, sendChatAction, sendMessage, tg, type InlineKeyboard } from "./telegram.server";
 import { DIVIDER, money } from "./views.server";
 import { adjustBalance, clearState, getUser, setState, supabaseAdmin } from "./store.server";
-import { notifyAdmins } from "./admin.server";
+import { notifyAdmins, isAdmin } from "./admin.server";
 
 type Ctx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 export type ExtPackage = { id: number; name: string; duration_value: number; duration_unit: string; price_bdt: number; active: boolean };
@@ -104,6 +104,7 @@ export async function showExtPackage(ctx: Ctx, id: number) {
     ...(enough ? [[{ text: "💳 Pay from Wallet", callback_data: "ext:pay:w" }]] : []),
     [{ text: "📱 Direct Pay with bKash", callback_data: "ext:pay:b" }],
     [{ text: "💎 Direct Pay with USDT", callback_data: "ext:pay:d" }],
+    ...(isAdmin(ctx.chatId) ? [[{ text: "📢 Upload in Channel", callback_data: `post:ext:${id}` }]] : []),
     [{ text: "⬅️ Back", callback_data: "ext" }, { text: "🏠 Home", callback_data: "home" }],
   ]);
 }

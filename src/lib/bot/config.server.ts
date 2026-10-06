@@ -14,14 +14,21 @@ export const BRAND = {
 };
 
 export function supportUsername(): string {
-  return process.env["SUPPORT_USERNAME"] ?? "xnxoje";
+  return currentSupport;
+}
+
+let currentSupport = "Frreohi";
+let additionalAdmins: number[] = [];
+export function setBotAccess(admins: number[], support: string) {
+  additionalAdmins = admins;
+  currentSupport = support.replace(/^@/, "") || "Frreohi";
 }
 
 export function adminChatIds(): number[] {
-  return (process.env["BOT_ADMIN_CHAT_ID"] ?? "")
+  return [...new Set([...(process.env["BOT_ADMIN_CHAT_ID"] ?? "")
     .split(",")
     .map((v) => Number(v.trim()))
-    .filter((v) => Number.isFinite(v) && v !== 0);
+    .filter((v) => Number.isFinite(v) && v !== 0), ...additionalAdmins])];
 }
 
 export function markupMultiplier(): number {

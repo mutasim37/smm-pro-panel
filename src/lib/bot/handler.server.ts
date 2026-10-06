@@ -1,6 +1,7 @@
 // Core bot brain: routing, menus, order flow, wallet flow.
 import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies } from "./config.server";
 import { syncOrder, FINAL_STATUSES, type OrderRow } from "./orders.server";
+import { channelDraft, publishProduct, productRef, type ProductRef } from "./channel-posts.server";
 import {
   answerCallback,
   escapeHtml,
@@ -70,6 +71,7 @@ import {
   adminTickets,
   adminUsers,
   isAdmin,
+  loadBotAccess,
   notifyAdmins,
   runBroadcast,
   sendAdminPanel,
@@ -90,6 +92,7 @@ type Ctx = {
 
 /** Last bot screen per chat (best effort) so a new screen replaces the old one. */
 const lastScreen = new Map<number, number>();
+const keyboardMessages = new Map<number, number>();
 
 export async function dropMessage(chatId: number, messageId?: number) {
   if (!messageId) return;
@@ -133,13 +136,16 @@ async function showHome(chatId: number, user: BotUser) {
   const orders = await ordersCount(chatId);
   const caption = welcomeText(user.first_name ?? "friend", Number(user.balance), orders);
   await clearLastScreen(chatId);
-  // Attach the persistent keyboard to the welcome screen rather than a duplicate menu message.
-  const reply_markup = mainKeyboard(isAdmin(chatId));
+  // Never delete the active keyboard anchor during product navigation.
+  const anchor = await sendMessage(chatId, `<b>${BRAND.name}</b>`, { reply_markup: mainKeyboard(isAdmin(chatId)) });
+  if (anchor?.message_id) {
+    await dropMessage(chatId, keyboardMessages.get(chatId));
+    keyboardMessages.set(chatId, anchor.message_id);
+  }
   let sent: any = await sendPhoto(chatId, BANNERS.welcome, caption, {
     message_effect_id: EFFECTS.fire,
-    reply_markup,
   });
-  if (!sent) sent = await sendMessage(chatId, caption, { reply_markup });
+  if (!sent) sent = await sendMessage(chatId, caption);
   remember(chatId, sent);
 }
 
@@ -250,6 +256,7 @@ async function showService(ctx: Ctx, serviceId: number) {
   await respond(ctx, serviceCard(service, platformMeta(platformKey).emoji, link), [
     [{ text: "🚀 Order Now", callback_data: `buy:${service.id}` }],
     [{ text: "📤 Share Product", url: shareUrl(link, service.name) }],
+    ...(isAdmin(ctx.chatId) ? [[{ text: "📢 Upload in Channel", callback_data: `post:s:${service.id}` }]] : []),
     [
       { text: "⬅️ Back", callback_data: `ct:${categoryIndex}:0` },
       { text: "🏠 Home", callback_data: "home" },
@@ -968,7 +975,27 @@ async function verifyHash(chatId: number, hash: string) {
 
 /* ------------------------------ text pipeline ----------------------------- */
 
+async function channelPreview(ctx: Ctx, ref: ProductRef, customText?: string) {
+  const draft = await channelDraft(ref);
+  await setState(ctx.chatId, "channel_preview", { ref, customText });
+  const text = customText ? `${escapeHtml(customText)}\n\n${draft.caption}` : draft.caption;
+  return respond(ctx, `<b>📢 Post Preview · @allupdatexix</b>\n\n${text}`, [
+    [{ text: "🚀 Order Now", url: draft.url }],
+    [{ text: "📢 Publish to Channel", callback_data: "cp:send" }, { text: "✏️ Custom Text", callback_data: "cp:custom" }],
+    [{ text: "✖️ Cancel", callback_data: "cancel" }],
+  ]);
+}
+
 async function handleStep(chatId: number, text: string, state: { step: string | null; data: any }) {
+  if (state.step === "await_channel_caption" && isAdmin(chatId)) {
+    if (!text || text.length > 2000) {
+      await respond({ chatId }, "⚠️ Send a caption of up to 2,000 characters.");
+      return true;
+    }
+    const ref = productRef.parse(state.data.ref);
+    await channelPreview({ chatId }, ref, text);
+    return true;
+  }
   const catalog = await getCatalog();
 
   if (state.step === "await_link") {
@@ -1224,9 +1251,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "next" | "previous"> = {
-  "➡️ next page": "next",
-  "⬅️ previous page": "previous",
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref"> = {
   "🔍 search by code": "find",
   "🔥 popular": "pop",
   "🎁 refer & earn": "ref",
@@ -1242,6 +1267,7 @@ const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup"
 };
 
 export async function handleUpdate(update: any): Promise<void> {
+  await loadBotAccess();
   const from = update.callback_query?.from ?? (update.message ?? update.edited_message)?.from;
   let code: "USD" | "BDT" | "INR" = "USD";
   if (from?.id) {
@@ -1257,7 +1283,10 @@ async function openDeepProduct(chatId: number): Promise<boolean> {
   if (state.step !== "deep_product") return false;
   await clearState(chatId);
   await sendMessage(chatId, "👇 <b>Main menu</b>", { reply_markup: mainKeyboard(isAdmin(chatId)) });
-  await showService({ chatId }, Number(state.data["serviceId"]));
+  const id = Number(state.data["serviceId"]);
+  if (state.data["kind"] === "tg") await showTgItem({ chatId }, id);
+  else if (state.data["kind"] === "ext") await showExtPackage({ chatId }, id);
+  else await showService({ chatId }, id);
   return true;
 }
 
@@ -1298,7 +1327,8 @@ async function routeUpdate(update: any): Promise<void> {
     const ref = await attachReferrer(chatId, startPayload);
     if (ref) await sendMessage(ref, `🎉 <b>New referral joined!</b>\nYou'll earn a reward on their first purchase.`);
   }
-  if (startPayload.startsWith("p_")) await setState(chatId, "deep_product", { serviceId: Number(startPayload.slice(2)) });
+  const deep = /^(p|tg|ext)_(\d+)$/.exec(startPayload);
+  if (deep) await setState(chatId, "deep_product", { serviceId: Number(deep[2]), kind: deep[1] });
 
   if (!isAdmin(chatId) && !(await isJoined(chatId))) {
     const gate = await joinGate();
@@ -1343,16 +1373,6 @@ async function routeUpdate(update: any): Promise<void> {
   const ctx: Ctx = { chatId };
   if (MENU[text.toLowerCase()]) await dropMessage(chatId, message.message_id);
   switch (MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined)) {
-    case "next":
-    case "previous": {
-      const page = MENU[text.toLowerCase()] === "next" ? 1 : 0;
-      await clearState(chatId);
-      await clearLastScreen(chatId);
-      remember(chatId, await sendMessage(chatId, page === 1 ? "👇 <b>More products</b>" : "👇 <b>Main menu</b>", {
-        reply_markup: mainKeyboard(isAdmin(chatId), page),
-      }));
-      return;
-    }
     case "svc":
       await clearState(chatId);
       return showPlatforms(ctx);
@@ -1428,11 +1448,38 @@ async function handleCallback(query: any) {
     switch (head) {
       case "noop":
         return;
+      case "post": {
+        if (!isAdmin(Number(query.from.id))) return;
+        const ref = productRef.parse({ kind: a, id: Number(b) });
+        await setState(chatId, "channel_post", { ref });
+        return respond(ctx, "<b>📢 Upload in Channel</b>\n\nChannel · @allupdatexix\nChoose a product caption or add your own text.", [
+          [{ text: "📄 Product Caption", callback_data: "cp:default" }, { text: "✏️ Custom Text", callback_data: "cp:custom" }],
+          [{ text: "✖️ Cancel", callback_data: "cancel" }],
+        ]);
+      }
+      case "cp": {
+        if (!isAdmin(Number(query.from.id))) return;
+        const state = await getState(chatId);
+        if (!["channel_post", "channel_preview"].includes(state.step ?? "")) return respond(ctx, "⚠️ Select a product to post again.");
+        const ref = productRef.parse(state.data["ref"]);
+        if (a === "custom") {
+          await setState(chatId, "await_channel_caption", { ref });
+          return respond(ctx, "<b>✏️ Custom Caption</b>\n\nSend your text (up to 2,000 characters). Product details and Order Now will be included.", [[{ text: "✖️ Cancel", callback_data: "cancel" }]]);
+        }
+        if (a === "default") return channelPreview(ctx, ref);
+        if (a === "send" && state.step === "channel_preview") {
+          const url = await publishProduct(Number(query.from.id), ref, state.data["customText"] as string | undefined);
+          await clearState(chatId);
+          return respond(ctx, "✅ <b>Product posted to @allupdatexix.</b>", [[{ text: "📢 View Post", url }], [{ text: "🛡 Admin Panel", callback_data: "a:panel" }]]);
+        }
+        return;
+      }
       case "fj": {
-        await clearState(chatId);
         const user = (await getUser(chatId))!;
         await dropMessage(chatId, ctx.messageId);
         if (!isCurrency(user.currency)) return showCurrencyPicker({ chatId });
+        if (await openDeepProduct(chatId)) return;
+        await clearState(chatId);
         return showHome(chatId, user);
       }
       case "find":

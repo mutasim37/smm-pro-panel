@@ -1,5 +1,5 @@
 // Admin control panel. Only reachable by chat ids listed in BOT_ADMIN_CHAT_ID.
-import { adminChatIds, BRAND, EFFECTS } from "./config.server";
+import { adminChatIds, BRAND, EFFECTS, setBotAccess } from "./config.server";
 import { escapeHtml, ik, sendMessage, sendPhoto, type InlineKeyboard } from "./telegram.server";
 import { BANNERS } from "./assets.server";
 import { DIVIDER, usd } from "./views.server";
@@ -11,6 +11,15 @@ import { supplierBalance } from "./phoenix.server";
 
 export function isAdmin(chatId: number): boolean {
   return adminChatIds().includes(chatId);
+}
+
+export async function loadBotAccess() {
+  const [{ data: roles, error }, { data: support }] = await Promise.all([
+    supabaseAdmin.from("bot_admin_roles").select("telegram_id").eq("role", "admin"),
+    supabaseAdmin.from("bot_secrets").select("value").eq("name", "support_username").maybeSingle(),
+  ]);
+  if (error) throw new Error("Unable to verify administrator access.");
+  setBotAccess((roles ?? []).map((r) => Number(r.telegram_id)), support?.value ?? "Frreohi");
 }
 
 export function adminKeyboard(): InlineKeyboard {
