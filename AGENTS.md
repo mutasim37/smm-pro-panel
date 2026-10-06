@@ -29,3 +29,5 @@
 
 - TG accounts are bought from the Phoenix supplier in `phoenix.server.ts` (key in `bot_secrets.phoenix_api_key`); wallet is charged first and refunded on any failure, live price re-checked before buying.
 - Growth features (deep links `start=p_ID`/`ref_ID`, popular pins `bot_popular`, referral reward, force-join channel in `bot_secrets.force_channel`) live in `growth.server.ts`; the referral reward is paid once, guarded by the conditional `ref_rewarded = false` update.
+- Force-channel configuration and membership are checked live for every customer interaction; the testable membership policy fails closed so stale positives or API failures cannot bypass the join requirement.
+- Attach the home reply keyboard to its welcome screen and track page-switch messages as screens; this avoids duplicate menu messages while keeping Telegram's persistent keyboard.
