@@ -179,6 +179,24 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       bot_states: {
         Row: {
           data: Json
@@ -197,6 +215,42 @@ export type Database = {
           step?: string | null
           telegram_id?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      bot_tg_accounts: {
+        Row: {
+          charge: number
+          cost: number | null
+          country: string | null
+          created_at: string
+          id: string
+          item_id: number
+          order_ref: string | null
+          phone: string | null
+          telegram_id: number
+        }
+        Insert: {
+          charge: number
+          cost?: number | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          item_id: number
+          order_ref?: string | null
+          phone?: string | null
+          telegram_id: number
+        }
+        Update: {
+          charge?: number
+          cost?: number | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          item_id?: number
+          order_ref?: string | null
+          phone?: string | null
+          telegram_id?: number
         }
         Relationships: []
       }
