@@ -29,6 +29,13 @@
       "when": 1791198691636,
       "tag": "0003_bkash_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791266469128,
+      "tag": "0004_tg_accounts_and_settings",
+      "breakpoints": true
     }
   ]
 }

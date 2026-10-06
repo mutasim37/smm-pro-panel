@@ -16,8 +16,7 @@
   logic server-only and off the client bundle.
 - The webhook is authenticated with `base64url(sha256("telegram-webhook:" + TELEGRAM_BOT_TOKEN))`
   sent in `X-Telegram-Bot-Api-Secret-Token`; no other auth layer guards it.
-- Provider (SMMGen) prices are multiplied by `PRICE_MARKUP_PERCENT` in
-  `catalog.server.ts` before any user sees them — never show raw provider rates.
+- Provider prices (SMMGen markup %, TG-account multiplier) come from the admin-editable `bot_settings` table via `settings.server.ts` — never show raw provider rates.
 - The service catalog is cached in memory (15 min) with a `bot_service_cache`
   DB fallback (6 h) so updates stay fast without hammering the provider.
 - USDT (BEP20) deposits are verified through public BSC JSON-RPC nodes in
@@ -27,3 +26,5 @@
 - All money is stored in USD; `money()` renders it in the user's chosen currency (BDT/INR/USD) via an AsyncLocalStorage scope set per update — admin views use `usd()`.
 - Order statuses sync every 5 min via pg_cron → `/api/public/cron/sync-orders`, authed by `X-Cron-Key` from `bot_secrets` — provider has no webhooks; refunds for canceled/partial apply once (guarded by `refunded = 0`).
 - bKash deposits: an SMS-forwarder app POSTs official bKash SMS to `/api/public/bkash/webhook` (authed by `X-Bkash-Secret` = `bot_secrets.bkash_webhook`); `bot_bkash_sms.trx_id` UNIQUE + conditional `claimed_by IS NULL` update guarantee each TrxID credits once.
+
+- TG accounts are bought from the Phoenix supplier in `phoenix.server.ts` (key in `bot_secrets.phoenix_api_key`); wallet is charged first and refunded on any failure, live price re-checked before buying.

@@ -24,6 +24,8 @@ import {
 import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
+import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
+import { setSetting } from "./settings.server";
 import {
   adjustBalance,
   clearState,
@@ -71,6 +73,9 @@ import {
   sendAdminPanel,
   startBroadcast,
   startBalanceAdjust,
+  adminPricing,
+  startPricingEdit,
+  adminTgStore,
 } from "./admin.server";
 
 const PAGE_SIZE = 10;
@@ -126,7 +131,7 @@ async function showHome(chatId: number, user: BotUser) {
   const orders = await ordersCount(chatId);
   const caption = welcomeText(user.first_name ?? "friend", Number(user.balance), orders);
   const keyboard: InlineKeyboard = [
-    [{ text: "🛍 Browse Services", callback_data: "svc" }],
+    [{ text: "🛍 Browse Services", callback_data: "svc" }, { text: "📱 Buy TG Account", callback_data: "tg" }],
     [
       { text: "🧾 Recent Orders", callback_data: "ord:0" },
       { text: "💳 Add Funds", callback_data: "dep" },
@@ -340,6 +345,7 @@ async function showSummary(chatId: number, draft: { serviceId: number; link: str
   if (Number(user.balance) >= charge) {
     rows.push([{ text: `💰 Pay from Wallet (${money(charge)})`, callback_data: "pay:w" }]);
   }
+  rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "pay:b" }]);
   rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "pay:d" }]);
   rows.push([{ text: "✖️ Cancel", callback_data: "cancel" }]);
 
@@ -616,8 +622,8 @@ async function askBkashAmount(ctx: Ctx) {
   );
 }
 
-async function showBkashInvoice(chatId: number, amountBdt: number) {
-  await setState(chatId, "await_bk_pay", { amountBdt });
+async function showBkashInvoice(chatId: number, amountBdt: number, pendingOrder?: any) {
+  await setState(chatId, "await_bk_pay", { amountBdt, ...(pendingOrder ? { pendingOrder } : {}) });
   const rate = currencies().BDT.rate;
   await sendMessage(
     chatId,
@@ -645,7 +651,7 @@ async function askBkashTrx(ctx: Ctx) {
   const state = await getState(ctx.chatId);
   const amountBdt = Number(state.data["amountBdt"]);
   if (!amountBdt) return askBkashAmount(ctx);
-  await setState(ctx.chatId, "await_bk_trx", { amountBdt });
+  await setState(ctx.chatId, "await_bk_trx", state.data);
   await sendMessage(
     ctx.chatId,
     [
@@ -716,7 +722,7 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
         ]),
       },
     );
-    await setState(chatId, "await_bk_pay", { amountBdt });
+    await setState(chatId, "await_bk_pay", data);
     return;
   }
 
@@ -763,6 +769,12 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
     ].join("\n"),
     EFFECTS.fire,
   );
+  if (data["pendingOrder"]) await completePending(chatId, data["pendingOrder"]);
+}
+
+async function completePending(chatId: number, pending: any) {
+  if (pending?.kind === "tg") return buyTgAccount(chatId, pending);
+  return submitOrder(chatId, pending);
 }
 
 async function askDepositAmount(ctx: Ctx) {
@@ -930,7 +942,7 @@ async function verifyHash(chatId: number, hash: string) {
 
   const pending = state.data["pendingOrder"];
   if (pending) {
-    await submitOrder(chatId, pending);
+    await completePending(chatId, pending);
   } else {
     await clearState(chatId);
   }
@@ -1106,6 +1118,20 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     return true;
   }
 
+  if ((state.step === "await_admin_smm" || state.step === "await_admin_tg") && isAdmin(chatId)) {
+    const value = Number(text.replace(/[%x×,\s]/gi, ""));
+    const isSmm = state.step === "await_admin_smm";
+    if (!Number.isFinite(value) || value < (isSmm ? 0 : 1) || value > (isSmm ? 1000 : 50)) {
+      await sendMessage(chatId, isSmm ? "⚠️ Send a markup percent between 0 and 1000, e.g. <code>40</code>" : "⚠️ Send a multiplier between 1 and 50, e.g. <code>3</code>");
+      return true;
+    }
+    await setSetting(isSmm ? "smm_markup_pct" : "tg_multiplier", value);
+    await clearState(chatId);
+    const view = await adminPricing();
+    await sendMessage(chatId, `✅ <b>Saved.</b> New prices are live.\n\n${view.text}`, { reply_markup: ik(view.keyboard) });
+    return true;
+  }
+
   if (state.step === "await_broadcast" && isAdmin(chatId)) {
     await clearState(chatId);
     const delivered = await runBroadcast(text);
@@ -1118,8 +1144,9 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "ord" | "dep" | "prof" | "sup" | "about" | "admin"> = {
+const MENU: Record<string, "svc" | "tg" | "ord" | "dep" | "prof" | "sup" | "about" | "admin"> = {
   "🛍 services": "svc",
+  "📱 buy tg account": "tg",
   "📦 my orders": "ord",
   "💳 add funds": "dep",
   "👤 profile": "prof",
@@ -1207,6 +1234,9 @@ async function routeUpdate(update: any): Promise<void> {
     case "svc":
       await clearState(chatId);
       return showPlatforms(ctx);
+    case "tg":
+      await clearState(chatId);
+      return showTgCountries(ctx);
     case "ord":
       return showMyOrders(ctx, 0);
     case "dep":
@@ -1267,6 +1297,24 @@ async function handleCallback(query: any) {
       case "svc":
         await clearState(chatId);
         return showPlatforms(ctx);
+      case "tg": {
+        if (!a) return showTgCountries(ctx);
+        if (a === "c") return showTgList(ctx, b ?? "ALL", Number(data.split(":")[3] ?? 0));
+        if (a === "i") return showTgItem(ctx, Number(b));
+        if (a === "my") return showMyTg(ctx, Number(b ?? 0));
+        if (a === "acc") return showMyTgAccount(ctx, Number(b));
+        if (a === "otp") return tgOtp(chatId, Number(b));
+        if (a === "rs") return tgReset(chatId, Number(b));
+        if (a === "pay") {
+          const state = await getState(chatId);
+          if (state.step !== "tg_confirm") return respond(ctx, "⚠️ This checkout expired. Please choose the account again.", [[{ text: "📱 TG Accounts", callback_data: "tg" }]]);
+          const draft = { kind: "tg", itemId: Number(state.data["itemId"]), charge: Number(state.data["charge"]) };
+          if (b === "w") return buyTgAccount(chatId, draft);
+          if (b === "b") return showBkashInvoice(chatId, Math.ceil(draft.charge * currencies().BDT.rate), draft);
+          return sendInvoice(chatId, draft.charge, "TG account payment", draft);
+        }
+        return;
+      }
       case "pl":
         return showCategories(ctx, a!, Number(b ?? 0));
       case "ct":
@@ -1295,6 +1343,7 @@ async function handleCallback(query: any) {
           charge: number;
         };
         if (a === "w") return submitOrder(chatId, draft);
+        if (a === "b") return showBkashInvoice(chatId, Math.ceil(draft.charge * currencies().BDT.rate), { kind: "smm", ...draft });
         return sendInvoice(chatId, draft.charge, "Order payment", draft);
       }
       case "ord":
@@ -1357,6 +1406,10 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
     refresh: adminRefreshCatalog,
     broadcast: () => startBroadcast(ctx.chatId),
     bal: () => startBalanceAdjust(ctx.chatId),
+    pricing: adminPricing,
+    tgstore: adminTgStore,
+    psmm: () => startPricingEdit(ctx.chatId, "smm"),
+    ptg: () => startPricingEdit(ctx.chatId, "tg"),
   };
 
   const view = views[action];

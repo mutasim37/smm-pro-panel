@@ -6,6 +6,8 @@ import { DIVIDER, usd } from "./views.server";
 import { supabaseAdmin, setState } from "./store.server";
 import { providerBalance } from "./smmgen.server";
 import { getCatalog } from "./catalog.server";
+import { getSettings } from "./settings.server";
+import { supplierBalance } from "./phoenix.server";
 
 export function isAdmin(chatId: number): boolean {
   return adminChatIds().includes(chatId);
@@ -28,6 +30,10 @@ export function adminKeyboard(): InlineKeyboard {
     [
       { text: "📣 Broadcast", callback_data: "a:broadcast" },
       { text: "♻️ Refresh Catalog", callback_data: "a:refresh" },
+    ],
+    [
+      { text: "⚙️ Pricing & Markup", callback_data: "a:pricing" },
+      { text: "📱 TG Store", callback_data: "a:tgstore" },
     ],
     [{ text: "💵 Add / Deduct Balance", callback_data: "a:bal" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
@@ -272,4 +278,57 @@ export async function notifyAdmins(text: string, effect?: string) {
   for (const id of adminChatIds()) {
     await sendMessage(id, text, effect ? { message_effect_id: effect } : {});
   }
+}
+
+export async function adminPricing(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const settings = await getSettings();
+  return {
+    text: [
+      "<b>⚙️ Pricing & Markup</b>",
+      DIVIDER,
+      `🛍 <b>SMM services markup</b> · <code>${settings.smm_markup_pct}%</code>`,
+      `📱 <b>TG account multiplier</b> · <code>${settings.tg_multiplier}×</code>`,
+      DIVIDER,
+      `<blockquote>Example: supplier price $1.00 → SMM <code>$${(1 + settings.smm_markup_pct / 100).toFixed(2)}</code> · TG <code>$${settings.tg_multiplier.toFixed(2)}</code></blockquote>`,
+    ].join("\n"),
+    keyboard: [
+      [{ text: "✏️ Edit SMM %", callback_data: "a:psmm" }, { text: "✏️ Edit TG ×", callback_data: "a:ptg" }],
+      ...backRow(),
+    ],
+  };
+}
+
+export async function startPricingEdit(chatId: number, which: "smm" | "tg"): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  await setState(chatId, which === "smm" ? "await_admin_smm" : "await_admin_tg", {});
+  return {
+    text: which === "smm"
+      ? "<b>✏️ SMM Markup</b>\n" + DIVIDER + "\nSend the new markup <b>percent</b>, e.g. <code>40</code> (= supplier price + 40%).\nSend /cancel to abort."
+      : "<b>✏️ TG Account Multiplier</b>\n" + DIVIDER + "\nSend the new <b>multiplier</b>, e.g. <code>3</code> (supplier ৳10 → ৳30).\nSend /cancel to abort.",
+    keyboard: backRow(),
+  };
+}
+
+export async function adminTgStore(): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  const [balance, sales] = await Promise.all([
+    supplierBalance().catch(() => null),
+    supabaseAdmin.from("bot_tg_accounts").select("phone, country, charge, cost, telegram_id, created_at").order("created_at", { ascending: false }).limit(200),
+  ]);
+  const rows = (sales.data ?? []) as { phone: string | null; country: string | null; charge: number; cost: number | null; telegram_id: number; created_at: string }[];
+  const revenue = rows.reduce((t, r) => t + Number(r.charge), 0);
+  const cost = rows.reduce((t, r) => t + Number(r.cost ?? 0), 0);
+  const lines = [
+    "<b>📱 TG Account Store</b>",
+    DIVIDER,
+    `🏦 <b>Supplier balance</b> · <code>${balance === null ? "unavailable" : usd(balance)}</code>`,
+    `🧾 <b>Accounts sold</b> · <code>${rows.length}</code>`,
+    `💵 <b>Revenue</b> · <code>${usd(revenue)}</code> · <b>Profit</b> · <code>${usd(revenue - cost)}</code>`,
+    DIVIDER,
+    "<b>Latest sales</b>",
+  ];
+  for (const r of rows.slice(0, 10)) {
+    lines.push(`• <code>${escapeHtml(r.phone ?? "—")}</code> ${escapeHtml(r.country ?? "")} · ${usd(Number(r.charge))} · <code>${r.telegram_id}</code>`);
+  }
+  if (!rows.length) lines.push("<i>No sales yet.</i>");
+  lines.push(DIVIDER, "<blockquote>Keep the supplier wallet funded — purchases fail when it runs dry.</blockquote>");
+  return { text: lines.join("\n"), keyboard: backRow() };
 }
