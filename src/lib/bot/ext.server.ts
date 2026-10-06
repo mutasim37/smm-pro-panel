@@ -206,8 +206,7 @@ export async function downloadExtension(chatId: number) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!data) return sendMessage(chatId, "⚠️ Buy a license first to download the extension.");
-  return sendExtension(chatId, String(data.license_key));
+  return sendExtension(chatId, data ? String(data.license_key) : "your license key (buy a package first)");
 }
 
 /* --------------------------------- admin --------------------------------- */
