@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices.
+- [x] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices; multipart delivery tested without a real purchase.
 - [ ] Remove admin force-join bypass and verify join/leave/rejoin checks for all users.
 - [x] Tighten force-join checks and test join/leave/error behavior.
 - [x] Keep all bottom buttons on one compact page and retain keyboard during navigation.
