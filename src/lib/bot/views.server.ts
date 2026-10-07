@@ -89,7 +89,7 @@ export function mainKeyboard(isAdmin: boolean) {
     [{ text: "🛍 Services" }, { text: "📦 My Orders" }, { text: "💳 Add Funds" }],
     [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }, { text: "👤 Profile" }],
     [{ text: "🎁 Refer & Earn" }, { text: "🆘 Support" }, { text: "ℹ️ About" }],
-    [{ text: "⚡ Lovable Extension" }, { text: "📱 Buy TG Account" }],
+    [{ text: "📦 Other Products" }],
   );
   return {
     keyboard: rows,

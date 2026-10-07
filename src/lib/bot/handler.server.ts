@@ -199,7 +199,54 @@ async function showCategories(ctx: Ctx, platformKey: string, page: number) {
     "Pick a category to see the services inside.",
   ].join("\n");
 
-  await respond(ctx, text, [...rows, ...pager(`pl:${platformKey}`, safePage, totalPages, "svc")]);
+  await respond(ctx, text, [[{ text: "📋 All Products (A–Z)", callback_data: `pa:${platformKey}:0` }], ...rows, ...pager(`pl:${platformKey}`, safePage, totalPages, "svc")]);
+}
+
+async function showPlatformAll(ctx: Ctx, platformKey: string, page: number) {
+  const catalog = await getCatalog();
+  const meta = platformMeta(platformKey);
+  const all = (catalog.byPlatform.get(platformKey) ?? [])
+    .flatMap((i) => catalog.byCategory.get(catalog.categories[i]!) ?? [])
+    .sort((x, y) => x.name.localeCompare(y.name));
+  const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 0), totalPages - 1);
+  const rows: InlineKeyboard = all.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE).map((service) => [
+    { text: `${money(service.price)} · ${shorten(service.name, 44)}`, callback_data: `sv:${service.id}` },
+  ]);
+  const text = [
+    `${meta.emoji} <b>${meta.label} · All Products</b>`,
+    DIVIDER,
+    `🛍 <b>${all.length}</b> services · A–Z`,
+    "",
+    "Tap a service for full details.",
+  ].join("\n");
+  await respond(ctx, text, [...rows, ...pager(`pa:${platformKey}`, safePage, totalPages, `pl:${platformKey}:0`)]);
+}
+
+async function showOtherProducts(ctx: Ctx) {
+  await respond(ctx, ["<b>📦 Other Products</b>", DIVIDER, "Choose a store below."].join("\n"), [
+    [{ text: "⚡ Lovable Extension", callback_data: "ext" }, { text: "📱 TG Accounts", callback_data: "tg" }],
+    [{ text: "🏠 Home", callback_data: "home" }],
+  ]);
+}
+
+async function showApiAccess(ctx: Ctx, regenerate: boolean) {
+  const { getApiKey, regenerateApiKey, API_BASE, API_DOCS_URL } = await import("./api.server");
+  let key = regenerate ? null : await getApiKey(ctx.chatId);
+  if (!key && regenerate) key = await regenerateApiKey(ctx.chatId);
+  const text = [
+    "<b>🔑 Reseller API</b>",
+    DIVIDER,
+    key ? `🔐 <b>API Key</b> · <code>${key}</code>` : "You don't have an API key yet. Tap <b>Generate Key</b>.",
+    `🌐 <b>Base URL</b> · <code>${API_BASE}</code>`,
+    DIVIDER,
+    "<blockquote>Orders are paid from your wallet balance. You'll get a message here when an API order completes. Keep your key private.</blockquote>",
+  ].join("\n");
+  await respond(ctx, text, [
+    [{ text: key ? "♻️ Regenerate Key" : "✨ Generate Key", callback_data: "api:new" }],
+    [{ text: "📖 API Documentation", url: API_DOCS_URL }],
+    [{ text: "👤 Profile", callback_data: "prof" }, { text: "🏠 Home", callback_data: "home" }],
+  ]);
 }
 
 async function showServices(ctx: Ctx, categoryIndex: number, page: number) {
@@ -1251,7 +1298,8 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other"> = {
+  "📦 other products": "other",
   "🔍 search by code": "find",
   "🔥 popular": "pop",
   "🎁 refer & earn": "ref",
@@ -1382,6 +1430,9 @@ async function routeUpdate(update: any): Promise<void> {
     case "ext":
       await clearState(chatId);
       return showExtStore(ctx);
+    case "other":
+      await clearState(chatId);
+      return showOtherProducts(ctx);
     case "ord":
       return showMyOrders(ctx, 0);
     case "dep":
@@ -1390,6 +1441,7 @@ async function routeUpdate(update: any): Promise<void> {
       const fresh = (await getUser(chatId))!;
       return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
         [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
+        [{ text: "🔑 API Access", callback_data: "api" }],
         [{ text: "🏠 Home", callback_data: "home" }],
       ]);
     }
@@ -1540,6 +1592,12 @@ async function handleCallback(query: any) {
       }
       case "pl":
         return showCategories(ctx, a!, Number(b ?? 0));
+      case "pa":
+        return showPlatformAll(ctx, a!, Number(b ?? 0));
+      case "oth":
+        return showOtherProducts(ctx);
+      case "api":
+        return showApiAccess(ctx, a === "new");
       case "ct":
         return showServices(ctx, Number(a), Number(b ?? 0));
       case "sv":
@@ -1591,6 +1649,7 @@ async function handleCallback(query: any) {
         const fresh = (await getUser(chatId))!;
         return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
           [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
+          [{ text: "🔑 API Access", callback_data: "api" }],
           [{ text: "🏠 Home", callback_data: "home" }],
         ]);
       }

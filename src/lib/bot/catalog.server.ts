@@ -14,7 +14,7 @@ export type Platform = {
 /** Ordered platform list. First match wins, so keep specific keys above generic ones. */
 export const PLATFORMS: Platform[] = [
   { key: "facebook", label: "Facebook", emoji: "📘", match: ["facebook", "fb "] },
-  { key: "instagram", label: "Instagram", emoji: "📸", match: ["instagram", "insta"] },
+  { key: "instagram", label: "Instagram", emoji: "📸", match: ["instagram", "insta ", "insta-", "ig "] },
   { key: "tiktok", label: "TikTok", emoji: "🎵", match: ["tiktok", "tik tok"] },
   { key: "youtube", label: "YouTube", emoji: "▶️", match: ["youtube", "yt "] },
   { key: "telegram", label: "Telegram", emoji: "✈️", match: ["telegram"] },
