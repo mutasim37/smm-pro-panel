@@ -29,6 +29,24 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          telegram_id: number
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          telegram_id: number
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       bot_bkash_sms: {
         Row: {
           amount_bdt: number
@@ -179,6 +197,7 @@ export type Database = {
           remains: string | null
           service_id: number
           service_name: string
+          source: string
           start_count: string | null
           status: string
           telegram_id: number
@@ -198,6 +217,7 @@ export type Database = {
           remains?: string | null
           service_id: number
           service_name: string
+          source?: string
           start_count?: string | null
           status?: string
           telegram_id: number
@@ -217,6 +237,7 @@ export type Database = {
           remains?: string | null
           service_id?: number
           service_name?: string
+          source?: string
           start_count?: string | null
           status?: string
           telegram_id?: number
