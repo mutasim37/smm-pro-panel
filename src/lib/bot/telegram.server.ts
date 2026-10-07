@@ -99,6 +99,22 @@ export function sendChatAction(chatId: number | string, action = "typing") {
   return tg("sendChatAction", { chat_id: chatId, action });
 }
 
+export async function sendDocumentFile(chatId: number, filename: string, content: string, caption: string) {
+  const form = new FormData();
+  form.set("chat_id", String(chatId));
+  form.set("document", new Blob([content], { type: "text/markdown;charset=utf-8" }), filename);
+  form.set("caption", caption);
+  form.set("parse_mode", "HTML");
+  try {
+    const response = await fetch(apiUrl("sendDocument"), { method: "POST", body: form });
+    const result = await response.json() as { ok?: boolean; result?: unknown };
+    return response.ok && result.ok ? result.result : null;
+  } catch {
+    console.error("[telegram] document upload failed");
+    return null;
+  }
+}
+
 export function answerCallback(id: string, text?: string, alert = false) {
   return tg("answerCallbackQuery", {
     callback_query_id: id,

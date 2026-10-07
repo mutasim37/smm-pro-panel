@@ -11,6 +11,8 @@
 
 ## Project rules
 
+- Bundle the supplied extension guide as raw Markdown and upload it through Telegram multipart documents after purchase; no public file URL or runtime filesystem is needed.
+
 - The Telegram bot lives in `src/lib/bot/*.server.ts` and is driven by one public
   webhook route (`src/routes/api/public/telegram/webhook.ts`) — keeps all bot
   logic server-only and off the client bundle.
