@@ -35,3 +35,4 @@
 - Keep one separate persistent keyboard anchor per chat and replace it only after sending its successor; deleting product screens must not dismiss Telegram's keyboard.
 - Additional Telegram admins are loaded from the server-only bot_admin_roles table at each update, never from editable user profiles; the owner environment allowlist remains valid.
 - Channel posts use an admin-authorized preview/confirmation flow with validated product references and escaped custom text; typed product deep links reopen current products without leaking purchased credentials.
+- Reseller API: `src/routes/api/public/v2.ts` → `api.server.ts` (SMM-panel actions services/add/status/balance, 16-char key in server-only `bot_api_keys`, wallet charged first and refunded on failure); docs served raw from `api-docs.md` at `/api/public/docs`.

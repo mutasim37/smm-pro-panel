@@ -57,6 +57,13 @@
       "when": 1791299108652,
       "tag": "0007_telegram_admin_access",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791376471274,
+      "tag": "0008_reseller_api",
+      "breakpoints": true
     }
   ]
 }

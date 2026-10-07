@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicDocsRouteImport } from './routes/api/public/docs'
+import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
 import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicCronSyncOrdersRouteImport } from './routes/api/public/cron/sync-orders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
@@ -17,6 +19,16 @@ import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/publi
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDocsRoute = ApiPublicDocsRouteImport.update({
+  id: '/api/public/docs',
+  path: '/api/public/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV2Route = ApiPublicV2RouteImport.update({
+  id: '/api/public/v2',
+  path: '/api/public/v2',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicBkashWebhookRoute = ApiPublicBkashWebhookRouteImport.update({
@@ -38,12 +50,16 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/docs': typeof ApiPublicDocsRoute
+  '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/docs': typeof ApiPublicDocsRoute
+  '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -51,6 +67,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/docs': typeof ApiPublicDocsRoute
+  '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -59,18 +77,24 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/public/docs'
+    | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/public/docs'
+    | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
+    | '/api/public/docs'
+    | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
@@ -78,6 +102,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicDocsRoute: typeof ApiPublicDocsRoute
+  ApiPublicV2Route: typeof ApiPublicV2Route
   ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronSyncOrdersRoute: typeof ApiPublicCronSyncOrdersRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
@@ -90,6 +116,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/docs': {
+      id: '/api/public/docs'
+      path: '/api/public/docs'
+      fullPath: '/api/public/docs'
+      preLoaderRoute: typeof ApiPublicDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v2': {
+      id: '/api/public/v2'
+      path: '/api/public/v2'
+      fullPath: '/api/public/v2'
+      preLoaderRoute: typeof ApiPublicV2RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/bkash/webhook': {
@@ -118,6 +158,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicDocsRoute: ApiPublicDocsRoute,
+  ApiPublicV2Route: ApiPublicV2Route,
   ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronSyncOrdersRoute: ApiPublicCronSyncOrdersRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
