@@ -51,7 +51,7 @@ async function generateLicense(pkg: ExtPackage): Promise<{ key: string; expiresA
   const res = await fetch("https://io.eklas.dev/api/v1/license/generate", {
     method: "POST",
     headers: { Authorization: `Bearer ${await apiKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ plan: "Pro", durationValue: pkg.duration_value, durationUnit: pkg.duration_unit, maxActivations: 5 }),
+    body: JSON.stringify({ plan: "Pro", durationValue: pkg.duration_value, durationUnit: pkg.duration_unit, maxActivations: 1 }),
   });
   const json: any = await res.json().catch(() => ({}));
   if (!json?.ok || !json.license_key) throw new Error(json?.error ?? `HTTP ${res.status}`);
@@ -80,7 +80,7 @@ export async function showExtStore(ctx: Ctx) {
     "",
     "🔑 License key delivered <b>instantly</b>",
     "📦 Extension file sent right inside the bot",
-    "💻 Up to 5 device activations",
+    "💻 1 device per license",
     DIVIDER,
     pkgs.length ? "<b>Choose a package:</b>" : "<i>No packages available right now.</i>",
   ].join("\n"), rows);
