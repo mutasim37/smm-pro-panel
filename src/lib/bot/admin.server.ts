@@ -54,6 +54,7 @@ export function adminKeyboard(): InlineKeyboard {
     ],
     [
       { text: "🎁 Referrals", callback_data: "a:ref" },
+      { text: "🎟 Coupons", callback_data: "a:coupons" },
       { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
     ],
     [currentBot() === "tg"

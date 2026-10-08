@@ -7,6 +7,7 @@ import { adjustBalance, getUser, setState, clearState, supabaseAdmin } from "./s
 import { tgMultiplier } from "./settings.server";
 import { fastBuy, getAccount, loginCode, resetSessions, searchAccounts, PhoenixError, type TgItem } from "./phoenix.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
+import { redeemCoupon, releaseCoupon } from "./coupons.server";
 
 type Ctx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 
@@ -128,6 +129,7 @@ export async function showTgItem(ctx: Ctx, itemId: number) {
   if (balance >= price) rows.push([{ text: `💰 Pay from Wallet (${money(price)})`, callback_data: "tg:pay:w" }]);
   rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "tg:pay:b" }]);
   rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "tg:pay:d" }]);
+  rows.push([{ text: "🎟 Apply Coupon", callback_data: "cpn" }]);
   if (isAdmin(ctx.chatId)) rows.push([{ text: "📢 Upload in Channel", callback_data: `post:tg:${itemId}` }]);
   rows.push([{ text: "⬅️ Back", callback_data: `tg:c:${item.telegram_country}:0` }, { text: "🏠 Home", callback_data: "home" }]);
   const lastSeen = item.telegram_last_seen ? new Date(item.telegram_last_seen * 1000).toISOString().slice(0, 10) : "—";
@@ -149,7 +151,7 @@ export async function showTgItem(ctx: Ctx, itemId: number) {
 }
 
 /** Charge wallet, buy from supplier, deliver. Refunds on any failure. */
-export async function buyTgAccount(chatId: number, draft: { itemId: number; charge: number }) {
+export async function buyTgAccount(chatId: number, draft: { itemId: number; charge: number; base?: number; coupon?: string | undefined }) {
   const user = await getUser(chatId);
   if (!user) return;
   if (Number(user.balance) + 0.00001 < draft.charge) {
@@ -162,7 +164,7 @@ export async function buyTgAccount(chatId: number, draft: { itemId: number; char
 
   // Re-check live price so a supplier price jump never sells at a loss.
   const live = await getAccount(draft.itemId).catch(() => null);
-  if (!live || (await quote(live)) > draft.charge + 0.0001) {
+  if (!live || (await quote(live)) > (draft.base ?? draft.charge) + 0.0001) {
     await clearState(chatId);
     await sendMessage(chatId, "⚠️ This account was just sold or its price changed. Nothing was charged — please pick another one.", {
       reply_markup: ik([[{ text: "📱 TG Accounts", callback_data: "tg" }]]),
@@ -170,6 +172,13 @@ export async function buyTgAccount(chatId: number, draft: { itemId: number; char
     return;
   }
 
+  if (draft.coupon && !(await redeemCoupon(chatId, draft.coupon))) {
+    await clearState(chatId);
+    await sendMessage(chatId, "🚫 <b>Coupon no longer valid.</b> Nothing was charged — please choose the account again.", {
+      reply_markup: ik([[{ text: "📱 TG Accounts", callback_data: "tg" }]]),
+    });
+    return;
+  }
   const balanceAfter = await adjustBalance(chatId, -draft.charge);
   try {
     const result = await fastBuy(draft.itemId);
@@ -208,6 +217,7 @@ export async function buyTgAccount(chatId: number, draft: { itemId: number; char
     ].join("\n"), EFFECTS.fire);
   } catch (error) {
     await adjustBalance(chatId, draft.charge);
+    if (draft.coupon) await releaseCoupon(chatId, draft.coupon);
     await clearState(chatId);
     const msg = error instanceof PhoenixError && error.status === 409 ? "This account just went out of stock." : "The purchase could not be completed.";
     await sendMessage(chatId, [
