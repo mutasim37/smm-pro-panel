@@ -1,5 +1,6 @@
 // Message copy + keyboard builders. Keeps the bot voice consistent and premium.
 import { AsyncLocalStorage } from "node:async_hooks";
+import { currentBot } from "./scope.server";
 import {
   BRAND,
   PAYMENT_WINDOW_MINUTES,
@@ -85,6 +86,14 @@ export function progressBar(done: number, total: number): string {
 export function mainKeyboard(isAdmin: boolean) {
   const rows: { text: string }[][] = [];
     if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
+    if (currentBot() === "tg") {
+      rows.push(
+        [{ text: "📱 Buy TG Account" }, { text: "📂 My Accounts" }],
+        [{ text: "💳 Add Funds" }, { text: "👤 Profile" }, { text: "🎁 Refer & Earn" }],
+        [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
+      );
+      return { keyboard: rows, resize_keyboard: true, is_persistent: true, input_field_placeholder: "Choose an option…" };
+    }
     rows.push(
     [{ text: "🛍 Services" }, { text: "📦 My Orders" }, { text: "💳 Add Funds" }],
     [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }, { text: "👤 Profile" }],

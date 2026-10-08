@@ -1,4 +1,5 @@
 // Central bot configuration. Server-only.
+import { currentBot } from "./scope.server";
 
 export function env(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -7,8 +8,12 @@ export function env(name: string, fallback?: string): string {
 }
 
 export const BRAND = {
-  name: "XNOVA SMM",
-  tagline: "Premium Social Growth Engine",
+  get name() {
+    return currentBot() === "tg" ? "Frrr TG" : "XNOVA SMM";
+  },
+  get tagline() {
+    return currentBot() === "tg" ? "Premium Telegram Accounts" : "Premium Social Growth Engine";
+  },
   currency: "USD",
   symbol: "$",
 };

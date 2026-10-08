@@ -25,6 +25,7 @@ import {
 import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
+import { currentBot } from "./scope.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
 import { adminChannel, adminPopular, adminReferrals, attachReferrer, isJoined, joinGate, popularIds, productLink, referralView, rewardReferrer, setForceChannel, shareUrl, togglePin } from "./growth.server";
@@ -225,7 +226,7 @@ async function showPlatformAll(ctx: Ctx, platformKey: string, page: number) {
 
 async function showOtherProducts(ctx: Ctx) {
   await respond(ctx, ["<b>📦 Other Products</b>", DIVIDER, "Choose a store below."].join("\n"), [
-    [{ text: "⚡ Lovable Extension", callback_data: "ext" }, { text: "📱 TG Accounts", callback_data: "tg" }],
+    [{ text: "⚡ Lovable Extension", callback_data: "ext" }],
     [{ text: "🏠 Home", callback_data: "home" }],
   ]);
 }
@@ -577,7 +578,7 @@ async function showMyOrders(ctx: Ctx, page: number) {
     ];
   });
   if (!orders.length) rows.push([{ text: "🛍 Browse Services", callback_data: "svc" }]);
-  rows.push([{ text: "📂 My TG Accounts", callback_data: "tg:my:0" }, { text: "🔑 My Licenses", callback_data: "ext:my" }]);
+  rows.push([{ text: "🔑 My Licenses", callback_data: "ext:my" }]);
 
   await respond(ctx, lines.join("\n"), [...rows, ...pager("ord", page, totalPages, "home")]);
 }
@@ -1298,13 +1299,24 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other"> = {
+const SMM_ONLY = new Set(["svc", "ext", "find", "pop", "other", "pl", "pa", "oth", "api", "ct", "sv", "buy", "pay", "ord", "od", "re", "post", "cp"]);
+function menuAllowed(pick: string): boolean {
+  if (currentBot() === "tg") return !SMM_ONLY.has(pick);
+  return pick !== "tg" && pick !== "tgmy";
+}
+function callbackAllowed(head: string): boolean {
+  if (currentBot() === "tg") return !SMM_ONLY.has(head);
+  return head !== "tg";
+}
+
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other" | "tgmy"> = {
   "📦 other products": "other",
   "🔍 search by code": "find",
   "🔥 popular": "pop",
   "🎁 refer & earn": "ref",
   "🛍 services": "svc",
   "📱 buy tg account": "tg",
+  "📂 my accounts": "tgmy",
   "⚡ lovable extension": "ext",
   "📦 my orders": "ord",
   "💳 add funds": "dep",
@@ -1420,7 +1432,12 @@ async function routeUpdate(update: any): Promise<void> {
 
   const ctx: Ctx = { chatId };
   if (MENU[text.toLowerCase()]) await dropMessage(chatId, message.message_id);
-  switch (MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined)) {
+  let pick = MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined);
+  if (pick && !menuAllowed(pick)) pick = undefined;
+  switch (pick) {
+    case "tgmy":
+      await clearState(chatId);
+      return showMyTg(ctx, 0);
     case "svc":
       await clearState(chatId);
       return showPlatforms(ctx);
@@ -1489,6 +1506,10 @@ async function handleCallback(query: any) {
   await upsertUser(query.from);
 
   const [head, a, b] = data.split(":");
+  if (!callbackAllowed(head ?? "")) {
+    await answerCallback(query.id, "This option isn't available in this bot.");
+    return;
+  }
 
   if (!(await isJoined(Number(query.from.id)))) {
     const gate = await joinGate();
