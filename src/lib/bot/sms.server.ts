@@ -114,12 +114,15 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
 }
 export async function showSmsOrder(ctx: SmsCtx,id: string,cancel=false) {
   let order=await loadOrder(ctx.chatId,id); if(!order) return smsRespond(ctx,"Number not found.");
+  const closed=(o: SmsOrder)=>Number(o.refunded)>0 || o.status==="refunded";
+  if(closed(order)) return smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Status · <b>refunded</b>`,`Refunded · ${money(Number(order.refunded))}`,"This number is closed. Messages can no longer be checked."].join("\n"),[[{text:"📥 My Numbers",callback_data:"sms:my"}],...home]);
   await syncSmsOrder(order,cancel); order=await loadOrder(ctx.chatId,id); if(!order)return;
+  if(closed(order)) return showSmsOrder(ctx,id);
   const mins=Math.max(0,Math.ceil((Date.parse(order.expires_at)-Date.now())/60000));
   const keyboard: InlineKeyboard=[[{text:"🔄 Check OTP",callback_data:`sms:o:${id}`,style:"primary"}]];
-  if(!order.otp && Number(order.refunded)===0 && order.provider_id) keyboard.push([{text:"✖ Cancel Number",callback_data:`sms:x:${id}`,style:"danger"}]);
+  if(!order.otp && order.provider_id) keyboard.push([{text:"✖ Cancel Number",callback_data:`sms:x:${id}`,style:"danger"}]);
   keyboard.push([{text:"📥 My Numbers",callback_data:"sms:my"}],...home);
-  await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Pending review")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,Number(order.refunded)>0?`Refunded · ${money(Number(order.refunded))}`:"Cancellation is available after 2 minutes, subject to supplier approval."].join("\n"),keyboard);
+  await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Pending review")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,"Cancellation and refund are available after 5 minutes, subject to supplier approval."].join("\n"),keyboard);
 }
 export async function showSmsOrders(ctx: SmsCtx,page=0) {
   const {data,count}=await supabaseAdmin.from("bot3_sms_orders").select("*",{count:"exact"}).eq("telegram_id",ctx.chatId).order("created_at",{ascending:false}).range(page*10,page*10+9);
