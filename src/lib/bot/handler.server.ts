@@ -124,7 +124,7 @@ async function clearLastScreen(chatId: number) {
   }
 }
 
-async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
+export async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
   const markup = keyboard ? { reply_markup: ik(keyboard) } : {};
   if (ctx.messageId && !ctx.fromPhoto) {
     const edited = await editMessage(ctx.chatId, ctx.messageId, text, markup);
@@ -1816,7 +1816,7 @@ async function handleCallback(query: any) {
 
 async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
   if (currentBot() === "sms") {
-    if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action);return respond(ctx,v.text,v.keyboard);}
+    if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action,page);return respond(ctx,v.text,v.keyboard);}
     if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS markup percentage, e.g. 30.");}
     if (!["panel","stats","users","deposits","tickets","broadcast","bal","ch","chset","choff","ref","pref"].includes(action)) return;
   }
