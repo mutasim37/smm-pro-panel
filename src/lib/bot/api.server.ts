@@ -2,9 +2,11 @@
 import { getCatalog, isQuantityFree, needsComments, priceFor } from "./catalog.server";
 import { placeOrder } from "./smmgen.server";
 import { adjustBalance, getUser, supabaseAdmin } from "./store.server";
+import { currentBot } from "./scope.server";
+import { apiAddress, apiDocsAddress } from "./api-rules";
 
-export const API_BASE = "https://smm-pro-panel.lovable.app/api/public/v2";
-export const API_DOCS_URL = "https://smm-pro-panel.lovable.app/api/public/docs";
+export const apiBase = () => apiAddress(currentBot());
+export const apiDocsUrl = () => apiDocsAddress(currentBot());
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 export function newApiKey(): string {
