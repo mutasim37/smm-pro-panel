@@ -6,6 +6,7 @@ export type InlineButton = {
   text: string;
   callback_data?: string;
   url?: string;
+  style?: "success" | "danger" | "primary";
 };
 
 export type InlineKeyboard = InlineButton[][];
@@ -13,6 +14,7 @@ export type InlineKeyboard = InlineButton[][];
 let bot2Token: string | null = null;
 let bot1Token: string | null = null;
 async function botToken(): Promise<string> {
+  if (currentBot() === "sms") return env("TELEGRAM_SMS_BOT_TOKEN");
   if (currentBot() !== "tg") {
     if (!bot1Token) {
       const { supabaseAdmin } = await import("./store.server");
@@ -28,6 +30,10 @@ async function botToken(): Promise<string> {
     bot2Token = String(data.value);
   }
   return bot2Token;
+}
+
+export async function bot3TokenValue(): Promise<string> {
+  return runAsBot("sms", botToken);
 }
 
 export async function bot2TokenValue(): Promise<string> {

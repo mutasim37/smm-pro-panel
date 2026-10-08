@@ -84,8 +84,12 @@ export function progressBar(done: number, total: number): string {
 }
 
 export function mainKeyboard(isAdmin: boolean) {
-  const rows: { text: string }[][] = [];
+  const rows: { text: string; style?: string }[][] = [];
     if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
+    if (currentBot() === "sms") {
+      rows.push([{ text: "📲 Buy Number", style: "success" }, { text: "📥 My Numbers" }], [{ text: "💳 Top Up", style: "primary" }, { text: "👤 Profile" }], [{ text: "🎁 Invite" }, { text: "🆘 Support" }, { text: "ℹ️ About" }]);
+      return { keyboard: rows, resize_keyboard: true, is_persistent: true, input_field_placeholder: "Choose an option…" };
+    }
     if (currentBot() === "tg") {
       rows.push(
         [{ text: "📱 Buy Account" }, { text: "🗂 My Accounts" }],
@@ -116,16 +120,19 @@ export function welcomeText(name: string, balance: number, orders: number): stri
     `Welcome, <b>${escapeHtml(name)}</b>`,
     "",
     `<b>Balance</b>      <code>${money(balance)}</code>`,
-    `<b>${currentBot() === "tg" ? "Accounts" : "Orders"}</b>        <code>${orders}</code>`,
+    `<b>${currentBot() === "sms" ? "Numbers" : currentBot() === "tg" ? "Accounts" : "Orders"}</b>        <code>${orders}</code>`,
     `<b>Currency</b>    <code>${cur.flag} ${cur.code}</code>`,
     DIVIDER,
-    currentBot() === "tg"
+    currentBot() === "sms"
+      ? "<blockquote>Live global stock · Private in-bot OTP · Secure wallet · Supplier-confirmed refunds</blockquote>"
+      : currentBot() === "tg"
       ? "<blockquote>Fresh & clean TG sessions · Instant OTP in-bot · 2FA reset · Spam-free stock</blockquote>"
       : "<blockquote>Instant delivery · On-chain top-up · Live order tracking · Private by design</blockquote>",
   ].join("\n");
 }
 
 export function aboutText(): string {
+  if (currentBot() === "sms") return ["<b>ℹ️ About Frrr SMS</b>", DIVIDER, "Your professional virtual-number and SMS verification store.", "", "🌍 Global numbers for your selected service", "⚡ Automatic OTP delivery inside Telegram", "💳 Secure bKash &amp; USDT wallet top-ups", "💱 Prices in BDT, INR or USD", "🛡 Refunds only after supplier confirmation; no refunds after OTP delivery", "", `🆘 Support · @${supportUsername()}`, DIVIDER, "<i>Fast. Private. Professional.</i>"].join("\n");
   if (currentBot() === "tg") {
     return [
       `<b>ℹ️ About ${BRAND.name}</b>`,
@@ -184,7 +191,7 @@ export function profileText(user: {
     `💱 <b>Currency</b> · <code>${currencies()[currentCurrency()].flag} ${currentCurrency()}</code>`,
     `⬆️ <b>Total deposited</b> · <code>${money(Number(user.total_deposited))}</code>`,
     `⬇️ <b>Total spent</b> · <code>${money(Number(user.total_spent))}</code>`,
-    currentBot() === "tg" ? `📱 <b>Accounts bought</b> · <code>${orders}</code>` : `📦 <b>Orders placed</b> · <code>${orders}</code>`,
+    currentBot() === "sms" ? `📲 <b>Numbers ordered</b> · <code>${orders}</code>` : currentBot() === "tg" ? `📱 <b>Accounts bought</b> · <code>${orders}</code>` : `📦 <b>Orders placed</b> · <code>${orders}</code>`,
     `📅 <b>Member since</b> · <code>${new Date(user.created_at).toISOString().slice(0, 10)}</code>`,
     DIVIDER,
     "<blockquote>Your account details are private and never shared.</blockquote>",

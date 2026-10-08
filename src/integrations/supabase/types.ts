@@ -784,6 +784,312 @@ export type Database = {
         }
         Relationships: []
       }
+      bot3_orders: {
+        Row: {
+          category: string | null
+          charge: number
+          comments: string | null
+          created_at: string
+          error: string | null
+          id: string
+          link: string
+          provider_order_id: string | null
+          quantity: number
+          refunded: number
+          remains: string | null
+          service_id: number
+          service_name: string
+          source: string
+          start_count: string | null
+          status: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          charge: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link: string
+          provider_order_id?: string | null
+          quantity: number
+          refunded?: number
+          remains?: string | null
+          service_id: number
+          service_name: string
+          source?: string
+          start_count?: string | null
+          status?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          charge?: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link?: string
+          provider_order_id?: string | null
+          quantity?: number
+          refunded?: number
+          remains?: string | null
+          service_id?: number
+          service_name?: string
+          source?: string
+          start_count?: string | null
+          status?: string
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot3_popular: {
+        Row: {
+          created_at: string
+          service_id: number
+        }
+        Insert: {
+          created_at?: string
+          service_id: number
+        }
+        Update: {
+          created_at?: string
+          service_id?: number
+        }
+        Relationships: []
+      }
+      bot3_service_cache: {
+        Row: {
+          key: string
+          payload: Json
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          payload: Json
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          payload?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot3_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      bot3_sms_orders: {
+        Row: {
+          charge: number
+          cost: number
+          country: string
+          country_name: string
+          created_at: string
+          expires_at: string
+          id: string
+          message_id: number | null
+          notification_attempts: number
+          notified_at: string | null
+          otp: string | null
+          phone: string | null
+          poll_locked_until: string | null
+          provider_id: string | null
+          provider_response: string | null
+          refunded: number
+          request_key: string
+          service: string
+          service_name: string
+          status: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          charge: number
+          cost: number
+          country: string
+          country_name: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          message_id?: number | null
+          notification_attempts?: number
+          notified_at?: string | null
+          otp?: string | null
+          phone?: string | null
+          poll_locked_until?: string | null
+          provider_id?: string | null
+          provider_response?: string | null
+          refunded?: number
+          request_key: string
+          service: string
+          service_name: string
+          status?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          charge?: number
+          cost?: number
+          country?: string
+          country_name?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          message_id?: number | null
+          notification_attempts?: number
+          notified_at?: string | null
+          otp?: string | null
+          phone?: string | null
+          poll_locked_until?: string | null
+          provider_id?: string | null
+          provider_response?: string | null
+          refunded?: number
+          request_key?: string
+          service?: string
+          service_name?: string
+          status?: string
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot3_states: {
+        Row: {
+          data: Json
+          step: string | null
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          data?: Json
+          step?: string | null
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          step?: string | null
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot3_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot3_updates: {
+        Row: {
+          created_at: string
+          update_id: number
+        }
+        Insert: {
+          created_at?: string
+          update_id: number
+        }
+        Update: {
+          created_at?: string
+          update_id?: number
+        }
+        Relationships: []
+      }
+      bot3_users: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string | null
+          first_name: string | null
+          is_admin: boolean
+          is_banned: boolean
+          language_code: string | null
+          last_name: string | null
+          last_seen_at: string
+          ref_earned: number
+          ref_rewarded: boolean
+          referred_by: number | null
+          telegram_id: number
+          total_deposited: number
+          total_spent: number
+          username: string | null
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string | null
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
+          telegram_id: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string | null
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
+          telegram_id?: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -804,6 +1110,29 @@ export type Database = {
       bot2_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }
         Returns: number
+      }
+      bot3_adjust_balance: {
+        Args: { _delta: number; _telegram_id: number }
+        Returns: number
+      }
+      bot3_claim_sms_poll: { Args: { _id: string }; Returns: boolean }
+      bot3_finish_sms: {
+        Args: { _id: string; _kind: string; _value: string }
+        Returns: boolean
+      }
+      bot3_reconcile_sms_schedule: { Args: never; Returns: undefined }
+      bot3_reserve_sms: {
+        Args: {
+          _charge: number
+          _cost: number
+          _country: string
+          _country_name: string
+          _key: string
+          _service: string
+          _service_name: string
+          _user: number
+        }
+        Returns: string
       }
     }
     Enums: {

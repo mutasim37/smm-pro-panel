@@ -1,3 +1,4 @@
+import { handleSmsCallback, handleSmsStep, showSmsServices, showSmsOrders, adminSmsView } from "./sms.server";
 // Core bot brain: routing, menus, order flow, wallet flow.
 import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies } from "./config.server";
 import { syncOrder, FINAL_STATUSES, type OrderRow } from "./orders.server";
@@ -123,7 +124,7 @@ async function clearLastScreen(chatId: number) {
   }
 }
 
-async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
+export async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
   const markup = keyboard ? { reply_markup: ik(keyboard) } : {};
   if (ctx.messageId && !ctx.fromPhoto) {
     const edited = await editMessage(ctx.chatId, ctx.messageId, text, markup);
@@ -145,7 +146,7 @@ async function respondPhoto(ctx: Ctx, photoUrl: string, caption: string, keyboar
 
 async function ordersCount(telegramId: number): Promise<number> {
   // Frrr TG sells accounts only, so its "orders" are purchased accounts.
-  const table = currentBot() === "tg" ? "bot_tg_accounts" : "bot_orders";
+  const table = currentBot() === "sms" ? "bot3_sms_orders" : currentBot() === "tg" ? "bot_tg_accounts" : "bot_orders";
   const { count } = await supabaseAdmin
     .from(table)
     .select("*", { count: "exact", head: true })
@@ -1066,6 +1067,7 @@ async function channelPreview(ctx: Ctx, ref: ProductRef, customText?: string) {
 }
 
 async function handleStep(chatId: number, text: string, state: { step: string | null; data: any }) {
+  if (currentBot() === "sms" && await handleSmsStep(chatId,text,state.step)) return true;
   if (state.step === "await_channel_caption" && isAdmin(chatId)) {
     if (!text || text.length > 2000) {
       await respond({ chatId }, "⚠️ Send a caption of up to 2,000 characters.");
@@ -1075,7 +1077,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     await channelPreview({ chatId }, ref, text);
     return true;
   }
-  const catalog = await getCatalog();
+  const catalog = currentBot() === "sms" ? { services: new Map<number, Service>() } : await getCatalog();
 
   if (state.step === "await_coupon") {
     const back = String(state.data["back"]);
@@ -1373,15 +1375,19 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 const SMM_ONLY = new Set(["svc", "ext", "find", "pop", "other", "pl", "pa", "oth", "api", "ct", "sv", "buy", "ord", "od", "re", "post", "cp"]);
 function menuAllowed(pick: string): boolean {
+  if (currentBot() === "sms") return ["sms","smsmy","dep","prof","sup","about","admin","ref"].includes(pick);
   if (currentBot() === "tg") return !SMM_ONLY.has(pick);
   return pick !== "tg" && pick !== "tgmy";
 }
 function callbackAllowed(head: string): boolean {
+  if (currentBot() === "sms") return ["sms","dep","prof","cur","home","cancel","fj","ref","a","noop"].includes(head);
   if (currentBot() === "tg") return !SMM_ONLY.has(head);
   return head !== "tg";
 }
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other" | "tgmy"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other" | "tgmy" | "sms" | "smsmy"> = {
+  "📲 buy number": "sms",
+  "📥 my numbers": "smsmy",
   "📦 other products": "other",
   "🔍 search by code": "find",
   "🔥 popular": "pop",
@@ -1473,7 +1479,7 @@ async function routeUpdate(update: any): Promise<void> {
     const ref = await attachReferrer(chatId, startPayload);
     if (ref) await sendMessage(ref, `🎉 <b>New referral joined!</b>\nYou'll earn a reward on their first purchase.`);
   }
-  const deep = /^(p|tg|ext)_(\d+)$/.exec(startPayload);
+  const deep = currentBot() === "sms" ? null : /^(p|tg|ext)_(\d+)$/.exec(startPayload);
   if (deep) await setState(chatId, "deep_product", { serviceId: Number(deep[2]), kind: deep[1] });
 
   if (!(await isJoined(Number(message.from.id)))) {
@@ -1521,6 +1527,8 @@ async function routeUpdate(update: any): Promise<void> {
   let pick = MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined);
   if (pick && !menuAllowed(pick)) pick = undefined;
   switch (pick) {
+    case "sms": return showSmsServices(ctx);
+    case "smsmy": return showSmsOrders(ctx);
     case "tgmy":
       await clearState(chatId);
       return showMyTg(ctx, 0);
@@ -1544,7 +1552,7 @@ async function routeUpdate(update: any): Promise<void> {
       const fresh = (await getUser(chatId))!;
       return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
         [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
-        [{ text: "🔑 API Access", callback_data: "api" }],
+        ...(currentBot() === "sms" ? [] : [[{ text: "🔑 API Access", callback_data: "api" }]]),
         [{ text: "🏠 Home", callback_data: "home" }],
       ]);
     }
@@ -1555,7 +1563,7 @@ async function routeUpdate(update: any): Promise<void> {
         [{ text: "✖️ Cancel", callback_data: "cancel" }],
       ]);
     case "about": {
-      if (currentBot() === "tg") {
+      if (currentBot() === "tg" || currentBot() === "sms") {
         return respondPhoto(ctx, LOGO.current, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
       }
       return respond(ctx, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
@@ -1593,7 +1601,8 @@ async function handleCallback(query: any) {
     fromPhoto: Boolean(query.message?.photo),
   };
 
-  await upsertUser(query.from);
+  const {user:callbackUser} = await upsertUser(query.from);
+  if (callbackUser.is_banned) {await answerCallback(query.id,"Your access has been suspended.");return;}
 
   const [head, a, b] = data.split(":");
   if (!callbackAllowed(head ?? "")) {
@@ -1610,6 +1619,7 @@ async function handleCallback(query: any) {
 
   try {
     switch (head) {
+      case "sms": return handleSmsCallback(ctx,a??"",b,data.split(":")[3]);
       case "noop":
         return;
       case "post": {
@@ -1781,7 +1791,7 @@ async function handleCallback(query: any) {
         const fresh = (await getUser(chatId))!;
         return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
           [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
-          [{ text: "🔑 API Access", callback_data: "api" }],
+          ...(currentBot() === "sms" ? [] : [[{ text: "🔑 API Access", callback_data: "api" }]]),
           [{ text: "🏠 Home", callback_data: "home" }],
         ]);
       }
@@ -1805,6 +1815,11 @@ async function handleCallback(query: any) {
 }
 
 async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
+  if (currentBot() === "sms") {
+    if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action,page);return respond(ctx,v.text,v.keyboard);}
+    if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS markup percentage, e.g. 30.");}
+    if (!["panel","stats","users","deposits","tickets","broadcast","bal","ch","chset","choff","ref","pref"].includes(action)) return;
+  }
   if (action === "panel") {
     await dropMessage(ctx.chatId, ctx.messageId);
     remember(ctx.chatId, await sendAdminPanel(ctx.chatId));

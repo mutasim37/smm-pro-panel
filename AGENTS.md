@@ -37,3 +37,9 @@
 - Channel posts use an admin-authorized preview/confirmation flow with validated product references and escaped custom text; typed product deep links reopen current products without leaking purchased credentials.
 - Reseller API: `src/routes/api/public/v2.ts` → `api.server.ts` (SMM-panel actions services/add/status/balance, 16-char key in server-only `bot_api_keys`, wallet charged first and refunded on failure); docs served raw from `api-docs.md` at `/api/public/docs`.
 - A second bot (Frrr TG, TG accounts only) runs on the same handler via `runAsBot("tg")` in `scope.server.ts`, entered from `/api/public/telegram/webhook2`; per-bot tables are routed to `bot2_*` copies by the scoped client in `store.server.ts` so wallets, referrals and orders never cross bots, while deposits/bKash SMS stay shared so a payment can be used only once across all bots. Bot 2 token lives in `bot_secrets.bot2_token`.
+
+- Frrr SMS enters webhook3 under runAsBot("sms"), uses bot3_* wallets/state/history and its own settings/channel; shared payment claims remain global to prevent reuse.
+- SMS reservations and refunds are transactional service-role RPCs; ambiguous purchases go to review, cancellation refunds require ACCESS_CANCEL and no stored OTP, and polling takes a per-order lock to prevent concurrent cancellation/code races.
+- SMS catalog caches persist in bot3_service_cache; a fresh capped supplier price is required before purchase, never expose supplier rates to customers.
+
+- SMS OTP polling uses one dynamically armed minute job targeting production; stop after active orders and bounded notifications drain so idle bots do not poll.
