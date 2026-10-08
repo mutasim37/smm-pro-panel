@@ -1239,7 +1239,8 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
   }
 
   if (state.step === "await_admin_bal" && isAdmin(chatId)) {
-    const selectedCode = isCurrency(state.data.currency) ? state.data.currency : "USD";
+    const storedCode: unknown = state.data.currency;
+    const selectedCode = isCurrency(storedCode) ? storedCode : "USD";
     const adjustment = parseBalanceAdjustment(text, Number(state.data.rate ?? currencies()[selectedCode].rate));
     if (!adjustment) {
       await sendMessage(chatId, `⚠️ Send <code>USER_ID AMOUNT</code> in ${selectedCode} — e.g. <code>123456789 100</code>. Amount must be nonzero.`);
