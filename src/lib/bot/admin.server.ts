@@ -58,7 +58,7 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
     ],
     [currentBot() === "tg"
-      ? { text: "🔁 Manage: Free SMM", url: "https://t.me/smmxixbot" }
+      ? { text: "🔁 Manage: Frrr SMM", url: "https://t.me/smmxixbot" }
       : { text: "🔁 Manage: Frrr TG", url: "https://t.me/Frrrtg_bot" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];

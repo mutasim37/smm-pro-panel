@@ -9,7 +9,7 @@ export function env(name: string, fallback?: string): string {
 
 export const BRAND = {
   get name() {
-    return currentBot() === "tg" ? "Frrr TG" : "Free SMM";
+    return currentBot() === "tg" ? "Frrr TG" : "Frrr SMM";
   },
   get tagline() {
     return currentBot() === "tg" ? "Instant Telegram Accounts" : "Premium Social Growth Engine";
