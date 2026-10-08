@@ -1,4 +1,7 @@
 # Tasks
+- [ ] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, OTP polling and provider-confirmed refunds.
+- [ ] Add white SMS branding, compact colored actions, independent admin tools and secure webhook.
+- [ ] Verify SMS catalog, menus and safety tests without buying a number; configure Telegram profile and webhook.
 - [x] Bot 2 Frrr TG: TG accounts moved out of Bot 1, separate wallets/referrals, admin switch button. Needs publish to go live.
 - [x] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices; multipart delivery tested without a real purchase.
 - [ ] Remove admin force-join bypass and verify join/leave/rejoin checks for all users.
