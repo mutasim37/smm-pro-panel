@@ -26,6 +26,7 @@ import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
 import { currentBot } from "./scope.server";
+import { adminCoupons, checkCoupon, COUPON_HELP, couponCard, createCoupon, disableCoupon, redeemCoupon, releaseCoupon } from "./coupons.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
 import { adminChannel, adminPopular, adminReferrals, attachReferrer, isJoined, joinGate, popularIds, productLink, referralView, rewardReferrer, setForceChannel, shareUrl, togglePin } from "./growth.server";
@@ -417,7 +418,7 @@ async function showSummary(chatId: number, draft: { serviceId: number; link: str
   }
   rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "pay:b" }]);
   rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "pay:d" }]);
-  rows.push([{ text: "✖️ Cancel", callback_data: "cancel" }]);
+  rows.push([{ text: "🎟 Apply Coupon", callback_data: "cpn" }, { text: "✖️ Cancel", callback_data: "cancel" }]);
 
   await sendMessage(
     chatId,
@@ -449,6 +450,14 @@ async function submitOrder(
     return;
   }
 
+  const coupon = (draft as { coupon?: string }).coupon;
+  if (coupon && !(await redeemCoupon(chatId, coupon))) {
+    await clearState(chatId);
+    await sendMessage(chatId, "🚫 <b>Coupon no longer valid.</b> Nothing was charged — please start the order again.", {
+      reply_markup: ik([[{ text: "🛍 Services", callback_data: "svc" }]]),
+    });
+    return;
+  }
   await sendChatAction(chatId);
   const balanceAfter = await adjustBalance(chatId, -draft.charge);
 
@@ -519,6 +528,7 @@ async function submitOrder(
     );
   } catch (error) {
     await adjustBalance(chatId, draft.charge);
+    if (coupon) await releaseCoupon(chatId, coupon);
     await supabaseAdmin
       .from("bot_orders")
       .update({ status: "failed", error: String(error), updated_at: new Date().toISOString() })
@@ -1046,6 +1056,47 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
   }
   const catalog = await getCatalog();
 
+  if (state.step === "await_coupon") {
+    const back = String(state.data["back"]);
+    const draft = (state.data["draft"] ?? {}) as Record<string, any>;
+    const base = Number(draft["base"] ?? draft["charge"]);
+    const codes = back === "tg_confirm" ? [String(draft["itemId"]), String(draft["country"] ?? "")] : [String(draft["serviceId"])];
+    const result = await checkCoupon(chatId, text, base, codes);
+    if (!result.ok) {
+      await sendMessage(chatId, `${result.error}\nTry another code or cancel.`, { reply_markup: ik([[{ text: "✖️ Cancel", callback_data: "cancel" }]]) });
+      return true;
+    }
+    await setState(chatId, back, { ...draft, base, charge: result.price, coupon: result.code });
+    const user = await getUser(chatId);
+    const prefix = back === "tg_confirm" ? "tg:pay" : "pay";
+    const rows: InlineKeyboard = [];
+    if (Number(user?.balance ?? 0) >= result.price) rows.push([{ text: `💰 Pay from Wallet (${money(result.price)})`, callback_data: `${prefix}:w` }]);
+    rows.push([{ text: "📱 Direct Pay with bKash", callback_data: `${prefix}:b` }]);
+    rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: `${prefix}:d` }]);
+    rows.push([{ text: "✖️ Cancel", callback_data: "cancel" }]);
+    await sendMessage(chatId, [
+      "<b>🎉 COUPON APPLIED</b>",
+      DIVIDER,
+      `🎟 <code>${escapeHtml(result.code)}</code> · <b>${result.label}</b>`,
+      `💵 <s>${money(base)}</s> → <b>${money(result.price)}</b>`,
+      `💰 Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,
+      DIVIDER,
+      "Choose how to pay 👇",
+    ].join("\n"), { reply_markup: ik(rows), message_effect_id: EFFECTS.party });
+    return true;
+  }
+  if (state.step === "await_admin_coupon" && isAdmin(chatId)) {
+    const res = await createCoupon(text);
+    if (!res.ok) {
+      await sendMessage(chatId, "⚠️ Could not read that, or the code already exists.\n\n" + COUPON_HELP, { reply_markup: ik([[{ text: "⬅️ Coupons", callback_data: "a:coupons" }]]) });
+      return true;
+    }
+    await clearState(chatId);
+    await sendMessage(chatId, ["<b>✅ COUPON CREATED</b>", DIVIDER, couponCard(res.coupon), "", "Tap the code to copy and share it."].join("\n"), {
+      reply_markup: ik([[{ text: "➕ Another", callback_data: "a:cpadd" }, { text: "🎟 Coupons", callback_data: "a:coupons" }]]),
+    });
+    return true;
+  }
   if (state.step === "await_link") {
     if (!/^https?:\/\/\S+$/i.test(text) && !/^@?[\w.]+$/.test(text)) {
       await sendMessage(chatId, "⚠️ Please send a valid link (starting with http:// or https://).");
@@ -1566,6 +1617,21 @@ async function handleCallback(query: any) {
         const view = await referralView(chatId);
         return respond(ctx, view.text, view.keyboard);
       }
+      case "cpn": {
+        const state = await getState(chatId);
+        if (state.step !== "confirm" && state.step !== "tg_confirm") {
+          return respond(ctx, "⚠️ This checkout expired. Please start again.", [[{ text: "🏠 Home", callback_data: "home" }]]);
+        }
+        if (state.data["coupon"]) return respond(ctx, "✅ A coupon is already applied to this checkout.", [[{ text: "🏠 Home", callback_data: "home" }]]);
+        await setState(chatId, "await_coupon", { back: state.step, draft: state.data });
+        return respond(ctx, "<b>🎟 Apply Coupon</b>\n\nSend your coupon code 👇", [[{ text: "✖️ Cancel", callback_data: "cancel" }]]);
+      }
+      case "cpx": {
+        if (!isAdmin(chatId)) return;
+        await disableCoupon(a ?? "");
+        const v = await adminCoupons();
+        return respond(ctx, v.text, v.keyboard);
+      }
       case "home": {
         await clearState(chatId);
         const user = (await getUser(chatId))!;
@@ -1586,7 +1652,13 @@ async function handleCallback(query: any) {
         if (a === "pay") {
           const state = await getState(chatId);
           if (state.step !== "tg_confirm") return respond(ctx, "⚠️ This checkout expired. Please choose the account again.", [[{ text: "📱 TG Accounts", callback_data: "tg" }]]);
-          const draft = { kind: "tg", itemId: Number(state.data["itemId"]), charge: Number(state.data["charge"]) };
+          const draft = {
+            kind: "tg",
+            itemId: Number(state.data["itemId"]),
+            charge: Number(state.data["charge"]),
+            base: Number(state.data["base"] ?? state.data["charge"]),
+            coupon: state.data["coupon"] as string | undefined,
+          };
           if (b === "w") return buyTgAccount(chatId, draft);
           if (b === "b") return showBkashInvoice(chatId, Math.ceil(draft.charge * currencies().BDT.rate), draft);
           return sendInvoice(chatId, draft.charge, "TG account payment", draft);
@@ -1717,6 +1789,11 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
     ext: adminExtStore,
     extadd: () => startExtAdd(ctx.chatId),
     pop: adminPopular,
+    coupons: adminCoupons,
+    cpadd: async () => {
+      await setState(ctx.chatId, "await_admin_coupon", {});
+      return { text: COUPON_HELP, keyboard: [[{ text: "⬅️ Coupons", callback_data: "a:coupons" }]] };
+    },
     popadd: async () => {
       await setState(ctx.chatId, "await_admin_pop", {});
       return { text: "<b>➕ Pin a Popular Service</b>\n\nSend the product code to pin.", keyboard: [[{ text: "⬅️ Back", callback_data: "a:pop" }]] };

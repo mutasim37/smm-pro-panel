@@ -80,6 +80,74 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_coupon_uses: {
+        Row: {
+          coupon_id: string
+          created_at: string
+          telegram_id: number
+        }
+        Insert: {
+          coupon_id: string
+          created_at?: string
+          telegram_id: number
+        }
+        Update: {
+          coupon_id?: string
+          created_at?: string
+          telegram_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_coupon_uses_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "bot_coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_coupons: {
+        Row: {
+          active: boolean
+          amount_usd: number | null
+          bot: string
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          max_uses: number
+          percent: number | null
+          product: string | null
+          used_count: number
+        }
+        Insert: {
+          active?: boolean
+          amount_usd?: number | null
+          bot?: string
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          percent?: number | null
+          product?: string | null
+          used_count?: number
+        }
+        Update: {
+          active?: boolean
+          amount_usd?: number | null
+          bot?: string
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          percent?: number | null
+          product?: string | null
+          used_count?: number
+        }
+        Relationships: []
+      }
       bot_deposits: {
         Row: {
           amount_credited: number | null
@@ -724,6 +792,14 @@ export type Database = {
       bot_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }
         Returns: number
+      }
+      bot_redeem_coupon: {
+        Args: { _bot: string; _code: string; _telegram_id: number }
+        Returns: boolean
+      }
+      bot_release_coupon: {
+        Args: { _bot: string; _code: string; _telegram_id: number }
+        Returns: undefined
       }
       bot2_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }

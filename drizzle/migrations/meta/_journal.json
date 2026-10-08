@@ -71,6 +71,13 @@
       "when": 1791484540970,
       "tag": "0009_bot2_frrr_tg",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791484781670,
+      "tag": "0010_coupons",
+      "breakpoints": true
     }
   ]
 }
