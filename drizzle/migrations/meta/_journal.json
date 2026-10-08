@@ -78,6 +78,13 @@
       "when": 1791484781670,
       "tag": "0010_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791488691717,
+      "tag": "0011_isolated_sms_bot_and_atomic_orders",
+      "breakpoints": true
     }
   ]
 }
