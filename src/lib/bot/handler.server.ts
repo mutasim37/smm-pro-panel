@@ -255,20 +255,20 @@ async function showOtherProducts(ctx: Ctx) {
 }
 
 async function showApiAccess(ctx: Ctx, regenerate: boolean) {
-  const { getApiKey, regenerateApiKey, API_BASE, API_DOCS_URL } = await import("./api.server");
+  const { getApiKey, regenerateApiKey, apiBase, apiDocsUrl } = await import("./api.server");
   let key = regenerate ? null : await getApiKey(ctx.chatId);
   if (!key && regenerate) key = await regenerateApiKey(ctx.chatId);
   const text = [
     "<b>🔑 Reseller API</b>",
     DIVIDER,
     key ? `🔐 <b>API Key</b> · <code>${key}</code>` : "You don't have an API key yet. Tap <b>Generate Key</b>.",
-    `🌐 <b>Base URL</b> · <code>${API_BASE}</code>`,
+    `🌐 <b>Base URL</b> · <code>${apiBase()}</code>`,
     DIVIDER,
     "<blockquote>Orders are paid from your wallet balance. You'll get a message here when an API order completes. Keep your key private.</blockquote>",
   ].join("\n");
   await respond(ctx, text, [
     [{ text: key ? "♻️ Regenerate Key" : "✨ Generate Key", callback_data: "api:new" }],
-    [{ text: "📖 API Documentation", url: API_DOCS_URL }],
+    [{ text: "📖 API Documentation", url: apiDocsUrl() }],
     [{ text: "👤 Profile", callback_data: "prof" }, { text: "🏠 Home", callback_data: "home" }],
   ]);
 }
@@ -1380,7 +1380,7 @@ function menuAllowed(pick: string): boolean {
   return pick !== "tg" && pick !== "tgmy";
 }
 function callbackAllowed(head: string): boolean {
-  if (currentBot() === "sms") return ["sms","dep","prof","cur","home","cancel","fj","ref","a","noop"].includes(head);
+  if (currentBot() === "sms") return ["sms","dep","prof","cur","home","cancel","fj","ref","a","noop","api"].includes(head);
   if (currentBot() === "tg") return !SMM_ONLY.has(head);
   return head !== "tg";
 }
@@ -1552,7 +1552,7 @@ async function routeUpdate(update: any): Promise<void> {
       const fresh = (await getUser(chatId))!;
       return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
         [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
-        ...(currentBot() === "sms" ? [] : [[{ text: "🔑 API Access", callback_data: "api" }]]),
+        [{ text: "🔑 API Access", callback_data: "api" }],
         [{ text: "🏠 Home", callback_data: "home" }],
       ]);
     }
@@ -1791,7 +1791,7 @@ async function handleCallback(query: any) {
         const fresh = (await getUser(chatId))!;
         return respond(ctx, profileText(fresh as any, await ordersCount(chatId)), [
           [{ text: "💳 Add Funds", callback_data: "dep" }, { text: "💱 Currency", callback_data: "cur" }],
-          ...(currentBot() === "sms" ? [] : [[{ text: "🔑 API Access", callback_data: "api" }]]),
+          [{ text: "🔑 API Access", callback_data: "api" }],
           [{ text: "🏠 Home", callback_data: "home" }],
         ]);
       }
