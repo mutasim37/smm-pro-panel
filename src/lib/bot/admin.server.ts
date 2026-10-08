@@ -57,7 +57,7 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
     ],
     [currentBot() === "tg"
-      ? { text: "🔁 Manage: XNOVA SMM", url: "https://t.me/" + (process.env["BOT1_USERNAME"] ?? "") }
+      ? { text: "🔁 Manage: XNOVA SMM", url: "https://t.me/smmxixbot" }
       : { text: "🔁 Manage: Frrr TG", url: "https://t.me/Frrrtg_bot" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];

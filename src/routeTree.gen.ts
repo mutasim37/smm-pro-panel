@@ -15,6 +15,7 @@ import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
 import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicCronSyncOrdersRouteImport } from './routes/api/public/cron/sync-orders'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicTelegramWebhook2RouteImport } from './routes/api/public/telegram/webhook2'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,6 +48,12 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTelegramWebhook2Route =
+  ApiPublicTelegramWebhook2RouteImport.update({
+    id: '/api/public/telegram/webhook2',
+    path: '/api/public/telegram/webhook2',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -55,6 +62,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -63,6 +71,7 @@ export interface FileRoutesByTo {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -72,6 +81,7 @@ export interface FileRoutesById {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -82,6 +92,7 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
+    | '/api/public/telegram/webhook2'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -90,6 +101,7 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
+    | '/api/public/telegram/webhook2'
   id:
     | '__root__'
     | '/'
@@ -98,6 +110,7 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/telegram/webhook'
+    | '/api/public/telegram/webhook2'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -107,6 +120,7 @@ export interface RootRouteChildren {
   ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronSyncOrdersRoute: typeof ApiPublicCronSyncOrdersRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
+  ApiPublicTelegramWebhook2Route: typeof ApiPublicTelegramWebhook2Route
 }
 
 declare module '@tanstack/react-router' {
@@ -153,6 +167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/telegram/webhook2': {
+      id: '/api/public/telegram/webhook2'
+      path: '/api/public/telegram/webhook2'
+      fullPath: '/api/public/telegram/webhook2'
+      preLoaderRoute: typeof ApiPublicTelegramWebhook2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -163,6 +184,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronSyncOrdersRoute: ApiPublicCronSyncOrdersRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
+  ApiPublicTelegramWebhook2Route: ApiPublicTelegramWebhook2Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
