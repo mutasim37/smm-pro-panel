@@ -92,9 +92,19 @@ type Ctx = {
   fromPhoto?: boolean;
 };
 
+/** Per-bot chat → message map: the same Telegram user has the same chat id in both bots. */
+class BotChatMap {
+  private m = new Map<string, number>();
+  private k(chatId: number) { return `${currentBot()}:${chatId}`; }
+  get(chatId: number) { return this.m.get(this.k(chatId)); }
+  set(chatId: number, v: number) { this.m.set(this.k(chatId), v); return this; }
+  delete(chatId: number) { return this.m.delete(this.k(chatId)); }
+  has(chatId: number) { return this.m.has(this.k(chatId)); }
+}
+
 /** Last bot screen per chat (best effort) so a new screen replaces the old one. */
-const lastScreen = new Map<number, number>();
-const keyboardMessages = new Map<number, number>();
+const lastScreen = new BotChatMap();
+const keyboardMessages = new BotChatMap();
 
 export async function dropMessage(chatId: number, messageId?: number) {
   if (!messageId) return;
@@ -1386,6 +1396,20 @@ const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup"
   "🆘 support": "sup",
   "ℹ️ about": "about",
   "🛡 admin panel": "admin",
+  // Frrr SMM menu
+  "🛒 new order": "svc",
+  "💰 wallet": "dep",
+  "👤 account": "prof",
+  "🔎 find by code": "find",
+  "🔥 trending": "pop",
+  "🧩 more products": "other",
+  "🎁 referral": "ref",
+  "💬 help": "sup",
+  // Frrr TG menu
+  "📱 buy account": "tg",
+  "🗂 my accounts": "tgmy",
+  "💳 top up": "dep",
+  "🎁 invite": "ref",
 };
 
 export async function handleUpdate(update: any): Promise<void> {
@@ -1532,7 +1556,7 @@ async function routeUpdate(update: any): Promise<void> {
       ]);
     case "about": {
       if (currentBot() === "tg") {
-        return respondPhoto(ctx, LOGO.tg, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
+        return respondPhoto(ctx, LOGO.current, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
       }
       return respond(ctx, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
     }
