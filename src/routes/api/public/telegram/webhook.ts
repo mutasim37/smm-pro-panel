@@ -21,7 +21,8 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = process.env["TELEGRAM_BOT_TOKEN"];
+        const { bot1TokenValue } = await import("@/lib/bot/telegram.server");
+        const token = await bot1TokenValue().catch(() => "");
         if (!token) return new Response("Not configured", { status: 500 });
 
         const provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
