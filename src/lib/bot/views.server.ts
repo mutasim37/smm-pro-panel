@@ -116,14 +116,33 @@ export function welcomeText(name: string, balance: number, orders: number): stri
     `Welcome, <b>${escapeHtml(name)}</b>`,
     "",
     `<b>Balance</b>      <code>${money(balance)}</code>`,
-    `<b>Orders</b>        <code>${orders}</code>`,
+    `<b>${currentBot() === "tg" ? "Accounts" : "Orders"}</b>        <code>${orders}</code>`,
     `<b>Currency</b>    <code>${cur.flag} ${cur.code}</code>`,
     DIVIDER,
-    "<blockquote>Instant delivery · On-chain top-up · Live order tracking · Private by design</blockquote>",
+    currentBot() === "tg"
+      ? "<blockquote>Fresh & clean TG sessions · Instant OTP in-bot · 2FA reset · Spam-free stock</blockquote>"
+      : "<blockquote>Instant delivery · On-chain top-up · Live order tracking · Private by design</blockquote>",
   ].join("\n");
 }
 
 export function aboutText(): string {
+  if (currentBot() === "tg") {
+    return [
+      `<b>ℹ️ About ${BRAND.name}</b>`,
+      DIVIDER,
+      "A premium, fully automated Telegram account shop.",
+      "",
+      "✅ <b>Fresh accounts</b> from many countries",
+      "✅ <b>Instant delivery</b> — login code right inside the bot",
+      "✅ <b>One-tap session reset</b> for full control",
+      "✅ <b>bKash & USDT (BEP20)</b> top-up, verified automatically",
+      "✅ <b>Privacy first</b> — your purchases stay private",
+      "",
+      `🆘 Support · @${supportUsername()}`,
+      DIVIDER,
+      "<i>Fast. Private. Professional.</i>",
+    ].join("\n");
+  }
   return [
     `<b>ℹ️ About ${BRAND.name}</b>`,
     DIVIDER,
@@ -159,7 +178,7 @@ export function profileText(user: {
     `💱 <b>Currency</b> · <code>${currencies()[currentCurrency()].flag} ${currentCurrency()}</code>`,
     `⬆️ <b>Total deposited</b> · <code>${money(Number(user.total_deposited))}</code>`,
     `⬇️ <b>Total spent</b> · <code>${money(Number(user.total_spent))}</code>`,
-    `📦 <b>Orders placed</b> · <code>${orders}</code>`,
+    currentBot() === "tg" ? `📱 <b>Accounts bought</b> · <code>${orders}</code>` : `📦 <b>Orders placed</b> · <code>${orders}</code>`,
     `📅 <b>Member since</b> · <code>${new Date(user.created_at).toISOString().slice(0, 10)}</code>`,
     DIVIDER,
     "<blockquote>Your account details are private and never shared.</blockquote>",

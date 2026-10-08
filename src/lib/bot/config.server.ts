@@ -9,10 +9,10 @@ export function env(name: string, fallback?: string): string {
 
 export const BRAND = {
   get name() {
-    return currentBot() === "tg" ? "Frrr TG" : "XNOVA SMM";
+    return currentBot() === "tg" ? "Frrr TG" : "Free SMM";
   },
   get tagline() {
-    return currentBot() === "tg" ? "Premium Telegram Accounts" : "Premium Social Growth Engine";
+    return currentBot() === "tg" ? "Instant Telegram Accounts" : "Premium Social Growth Engine";
   },
   currency: "USD",
   symbol: "$",
