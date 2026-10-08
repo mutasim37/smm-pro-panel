@@ -19,7 +19,7 @@ export class PhoenixError extends Error {
   }
 }
 
-async function call<T = any>(path: string, method: "GET" | "POST" = "GET", body?: unknown): Promise<T> {
+async function call<T = any>(path: string, method: "GET" | "POST" = "GET", body?: unknown, timeoutMs = 25000): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
@@ -27,7 +27,7 @@ async function call<T = any>(path: string, method: "GET" | "POST" = "GET", body?
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -58,13 +58,20 @@ export async function searchAccounts(country: string, page: number) {
   const key = `${country}:${page}`;
   const hit = listCache.get(key);
   if (hit && Date.now() - hit.at < 90 * 1000) return hit;
+  let json: any;
+  try {
   const qs = new URLSearchParams({ page: String(page), currency: "usd", order_by: "price_to_up", spam: "no" });
   if (country !== "ALL") qs.append("country[]", country);
-  const json: any = await call(`/telegram?${qs.toString()}`);
+    json = await call(`/telegram?${qs.toString()}`, "GET", undefined, 15000);
+  } catch (error) {
+    // Supplier slow/down: serve last good list (up to 6h) instead of an error.
+    if (hit && Date.now() - hit.at < 6 * 3600 * 1000) return hit;
+    throw error;
+  }
   const items: TgItem[] = (json.items ?? []).map((i: any) => ({ ...i, price: Number(i.price) }));
   const value = { at: Date.now(), items, hasNext: Boolean(json.hasNextPage), total: Number(json.totalItems ?? items.length) };
   listCache.set(key, value);
-  if (listCache.size > 200) listCache.clear();
+  if (listCache.size > 300) listCache.delete(listCache.keys().next().value!);
   return value;
 }
 

@@ -53,8 +53,7 @@ export async function showTgCountries(ctx: Ctx) {
   for (let i = 0; i < TG_COUNTRIES.length; i += 2) {
     rows.push(TG_COUNTRIES.slice(i, i + 2).map((c) => ({ text: `${c.flag} ${c.name}`, callback_data: `tg:c:${c.code}:0` })));
   }
-  rows.push([{ text: "📂 My TG Accounts", callback_data: "tg:my:0" }]);
-  rows.push([{ text: "🏠 Home", callback_data: "home" }]);
+  rows.push([{ text: "📂 My Accounts", callback_data: "tg:my:0" }, { text: "🏠 Home", callback_data: "home" }]);
   await show(ctx, [
     "<b>📱 TELEGRAM ACCOUNTS</b>",
     DIVIDER,
@@ -72,12 +71,16 @@ export async function showTgList(ctx: Ctx, country: string, page: number) {
   const apiPage = Math.floor((page * PER_PAGE) / API_PER_PAGE) + 1;
   const offset = (page * PER_PAGE) % API_PER_PAGE;
   let result;
+  if (ctx.messageId && !ctx.fromPhoto) {
+    await editMessage(ctx.chatId, ctx.messageId, "⏳ <b>Loading live stock…</b>", { reply_markup: ik([]) }).catch(() => null);
+  } else sendChatAction(ctx.chatId).catch(() => null);
   try {
     result = await searchAccounts(country, apiPage);
   } catch (error) {
     console.error("[tg] search failed", error);
-    return show(ctx, "⚠️ Stock is temporarily unavailable. Please try again in a moment.", [
-      [{ text: "🔁 Retry", callback_data: `tg:c:${country}:${page}` }, { text: "⬅️ Back", callback_data: "tg" }],
+    return show(ctx, "<b>⚠️ Stock is refreshing</b>\n" + DIVIDER + "\nOur account supplier is updating its stock right now. Please tap <b>Retry</b> in a minute.", [
+      [{ text: "🔁 Retry", callback_data: `tg:c:${country}:${page}` }, { text: "⬅️ Countries", callback_data: "tg" }],
+      [{ text: "🏠 Home", callback_data: "home" }],
     ]);
   }
   const items = result.items.slice(offset, offset + PER_PAGE);
@@ -89,14 +92,14 @@ export async function showTgList(ctx: Ctx, country: string, page: number) {
   }
   const mult = await tgMultiplier();
   const rows: InlineKeyboard = items.map((item) => [{
-    text: `${flagOf(item.telegram_country)} ${item.telegram_country} · ${money(item.price * mult)}${item.telegram_premium ? " · ⭐" : ""} · 👥${item.telegram_contacts_count ?? 0}`,
+    text: `${flagOf(item.telegram_country)} ${item.telegram_country} · ${money(item.price * mult)}${item.telegram_premium ? " ⭐" : ""}`,
     callback_data: `tg:i:${item.item_id}`,
   }]);
   const hasNext = offset + PER_PAGE < result.items.length || result.hasNext;
   const nav: InlineKeyboard[number] = [];
-  if (page > 0) nav.push({ text: "◀️ Previous", callback_data: `tg:c:${country}:${page - 1}` });
+  if (page > 0) nav.push({ text: "◀️", callback_data: `tg:c:${country}:${page - 1}` });
   nav.push({ text: `📄 ${page + 1}`, callback_data: "noop" });
-  if (hasNext) nav.push({ text: "Next ▶️", callback_data: `tg:c:${country}:${page + 1}` });
+  if (hasNext) nav.push({ text: "▶️", callback_data: `tg:c:${country}:${page + 1}` });
   rows.push(nav);
   rows.push([{ text: "⬅️ Countries", callback_data: "tg" }, { text: "🏠 Home", callback_data: "home" }]);
   await show(ctx, [
@@ -127,10 +130,10 @@ export async function showTgItem(ctx: Ctx, itemId: number) {
   const balance = Number(user?.balance ?? 0);
   const rows: InlineKeyboard = [];
   if (balance >= price) rows.push([{ text: `💰 Pay from Wallet (${money(price)})`, callback_data: "tg:pay:w" }]);
-  rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "tg:pay:b" }]);
-  rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "tg:pay:d" }]);
-  rows.push([{ text: "🎟 Apply Coupon", callback_data: "cpn" }]);
-  if (isAdmin(ctx.chatId)) rows.push([{ text: "📢 Upload in Channel", callback_data: `post:tg:${itemId}` }]);
+  rows.push([{ text: "📱 bKash", callback_data: "tg:pay:b" }, { text: "🪙 USDT", callback_data: "tg:pay:d" }]);
+  const extra: InlineKeyboard[number] = [{ text: "🎟 Coupon", callback_data: "cpn" }];
+  if (isAdmin(ctx.chatId)) extra.push({ text: "📢 Post", callback_data: `post:tg:${itemId}` });
+  rows.push(extra);
   rows.push([{ text: "⬅️ Back", callback_data: `tg:c:${item.telegram_country}:0` }, { text: "🏠 Home", callback_data: "home" }]);
   const lastSeen = item.telegram_last_seen ? new Date(item.telegram_last_seen * 1000).toISOString().slice(0, 10) : "—";
   await show(ctx, [
@@ -233,9 +236,8 @@ export async function buyTgAccount(chatId: number, draft: { itemId: number; char
 
 function accountKeyboard(itemId: number): InlineKeyboard {
   return [
-    [{ text: "📨 Get Login Code", callback_data: `tg:otp:${itemId}` }],
-    [{ text: "🔄 Reset Other Sessions", callback_data: `tg:rs:${itemId}` }],
-    [{ text: "📂 My TG Accounts", callback_data: "tg:my:0" }, { text: "🏠 Home", callback_data: "home" }],
+    [{ text: "📨 Login Code", callback_data: `tg:otp:${itemId}` }, { text: "🔄 Reset Sessions", callback_data: `tg:rs:${itemId}` }],
+    [{ text: "📂 My Accounts", callback_data: "tg:my:0" }, { text: "🏠 Home", callback_data: "home" }],
   ];
 }
 
