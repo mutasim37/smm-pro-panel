@@ -1396,6 +1396,20 @@ const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup"
   "🆘 support": "sup",
   "ℹ️ about": "about",
   "🛡 admin panel": "admin",
+  // Frrr SMM menu
+  "🛒 new order": "svc",
+  "💰 wallet": "dep",
+  "👤 account": "prof",
+  "🔎 find by code": "find",
+  "🔥 trending": "pop",
+  "🧩 more products": "other",
+  "🎁 referral": "ref",
+  "💬 help": "sup",
+  // Frrr TG menu
+  "📱 buy account": "tg",
+  "🗂 my accounts": "tgmy",
+  "💳 top up": "dep",
+  "🎁 invite": "ref",
 };
 
 export async function handleUpdate(update: any): Promise<void> {
@@ -1542,7 +1556,7 @@ async function routeUpdate(update: any): Promise<void> {
       ]);
     case "about": {
       if (currentBot() === "tg") {
-        return respondPhoto(ctx, LOGO.tg, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
+        return respondPhoto(ctx, LOGO.current, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
       }
       return respond(ctx, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
     }

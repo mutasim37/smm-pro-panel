@@ -88,17 +88,17 @@ export function mainKeyboard(isAdmin: boolean) {
     if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
     if (currentBot() === "tg") {
       rows.push(
-        [{ text: "📱 Buy TG Account" }, { text: "📂 My Accounts" }],
-        [{ text: "💳 Add Funds" }, { text: "👤 Profile" }, { text: "🎁 Refer & Earn" }],
-        [{ text: "🆘 Support" }, { text: "ℹ️ About" }],
+        [{ text: "📱 Buy Account" }, { text: "🗂 My Accounts" }],
+        [{ text: "💳 Top Up" }, { text: "👤 Profile" }],
+        [{ text: "🎁 Invite" }, { text: "🆘 Support" }, { text: "ℹ️ About" }],
       );
       return { keyboard: rows, resize_keyboard: true, is_persistent: true, input_field_placeholder: "Choose an option…" };
     }
     rows.push(
-    [{ text: "🛍 Services" }, { text: "📦 My Orders" }, { text: "💳 Add Funds" }],
-    [{ text: "🔍 Search by Code" }, { text: "🔥 Popular" }, { text: "👤 Profile" }],
-    [{ text: "🎁 Refer & Earn" }, { text: "🆘 Support" }, { text: "ℹ️ About" }],
-    [{ text: "📦 Other Products" }],
+    [{ text: "🛒 New Order" }, { text: "📦 My Orders" }],
+    [{ text: "💰 Wallet" }, { text: "👤 Account" }],
+    [{ text: "🔎 Find by Code" }, { text: "🔥 Trending" }, { text: "🧩 More Products" }],
+    [{ text: "🎁 Referral" }, { text: "💬 Help" }, { text: "ℹ️ About" }],
   );
   return {
     keyboard: rows,

@@ -1,6 +1,7 @@
 // Public CDN URLs for bot media — each bot has its own banners.
-import welcome from "@/assets/bot-welcome.jpg.asset.json";
-import admin from "@/assets/bot-admin.jpg.asset.json";
+import welcome from "@/assets/fsmm-welcome.jpg.asset.json";
+import admin from "@/assets/fsmm-admin.jpg.asset.json";
+import smmLogo from "@/assets/fsmm-logo.jpg.asset.json";
 import tgWelcome from "@/assets/frrr-welcome.jpg.asset.json";
 import tgAdmin from "@/assets/frrr-admin.jpg.asset.json";
 import tgLogo from "@/assets/frrr-tg-logo.png.asset.json";
@@ -25,5 +26,9 @@ export const BANNERS = {
 export const LOGO = {
   get tg() {
     return `${origin()}${tgLogo.url}`;
+  },
+  /** Logo of whichever bot is handling the update. */
+  get current() {
+    return currentBot() === "tg" ? `${origin()}${tgLogo.url}` : `${origin()}${smmLogo.url}`;
   },
 };
