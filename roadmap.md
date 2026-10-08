@@ -1,3 +1,5 @@
+- [ ] Separate SMM/TG/SMS reseller APIs and Markdown docs, per-bot keys and wallet-protected actions.
+- [ ] Publish latest app, register all three Telegram webhooks and verify live APIs without buying stock.
 # Tasks
 - [x] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, active-only OTP polling and provider-confirmed refunds.
 - [x] Add white SMS branding, compact actions, independent admin tools and secure webhook; button colors depend on Telegram support.
