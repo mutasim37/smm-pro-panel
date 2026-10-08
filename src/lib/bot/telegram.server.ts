@@ -11,8 +11,16 @@ export type InlineButton = {
 export type InlineKeyboard = InlineButton[][];
 
 let bot2Token: string | null = null;
+let bot1Token: string | null = null;
 async function botToken(): Promise<string> {
-  if (currentBot() !== "tg") return env("TELEGRAM_BOT_TOKEN");
+  if (currentBot() !== "tg") {
+    if (!bot1Token) {
+      const { supabaseAdmin } = await import("./store.server");
+      const { data } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "bot1_token").maybeSingle();
+      bot1Token = data?.value ? String(data.value) : env("TELEGRAM_BOT_TOKEN");
+    }
+    return bot1Token;
+  }
   if (!bot2Token) {
     const { supabaseAdmin } = await import("./store.server");
     const { data } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "bot2_token").maybeSingle();
@@ -24,6 +32,11 @@ async function botToken(): Promise<string> {
 
 export async function bot2TokenValue(): Promise<string> {
   return runAsBot("tg", botToken);
+}
+
+/** Frrr SMM token: bot_secrets.bot1_token overrides the env token (bot moved to a new username). */
+export async function bot1TokenValue(): Promise<string> {
+  return runAsBot("smm", botToken);
 }
 
 async function apiUrl(method: string): Promise<string> {
