@@ -1,5 +1,5 @@
 // bKash payments via an SMS-forwarder app. Server-only.
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "./store.server";
 
 export function bkashNumber(): string {
   return process.env["BKASH_NUMBER"] ?? "01345500016";

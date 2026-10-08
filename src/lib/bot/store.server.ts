@@ -1,5 +1,15 @@
 // Database access for the bot. Server-only.
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin as rawAdmin } from "@/integrations/supabase/client.server";
+import { scopedRpc, scopedTable } from "./scope.server";
+
+/** Service-role client whose per-bot tables are routed to the bot handling this update. */
+const supabaseAdmin = new Proxy(rawAdmin, {
+  get(target, prop, receiver) {
+    if (prop === "from") return (name: string) => (target.from as any)(scopedTable(name));
+    if (prop === "rpc") return (fn: string, args?: any, opts?: any) => (target.rpc as any)(scopedRpc(fn), args, opts);
+    return Reflect.get(target, prop, receiver);
+  },
+}) as typeof rawAdmin;
 
 export type BotUser = {
   telegram_id: number;

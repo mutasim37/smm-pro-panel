@@ -1,5 +1,5 @@
 // Telegram account supplier client. Server-only. Never expose supplier details to users.
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "./store.server";
 
 const BASE = "http://phoenixstoreapi.duckdns.org:6772";
 let keyCache: string | null = null;

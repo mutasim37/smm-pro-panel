@@ -1,5 +1,6 @@
 // Growth features: product deep links, popular services, referrals, force-join channel.
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "./store.server";
+import { currentBot } from "./scope.server";
 import { tg, escapeHtml, type InlineKeyboard } from "./telegram.server";
 import { getCatalog } from "./catalog.server";
 import { getSettings } from "./settings.server";
@@ -9,12 +10,15 @@ import { checkMembership, type ChannelMember } from "./membership";
 
 /* ------------------------------ bot username ------------------------------ */
 
-let botName: string | null = null;
+const botNames = new Map<string, string>();
 export async function botUsername(): Promise<string> {
-  if (botName) return botName;
+  const key = currentBot();
+  const cached = botNames.get(key);
+  if (cached) return cached;
   const me = await tg<{ username: string }>("getMe");
-  botName = me?.username ?? "bot";
-  return botName;
+  const name = me?.username ?? "bot";
+  botNames.set(key, name);
+  return name;
 }
 
 export async function productLink(serviceId: number): Promise<string> {

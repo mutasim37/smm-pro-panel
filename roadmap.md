@@ -1,4 +1,5 @@
 # Tasks
+- [x] Bot 2 Frrr TG: TG accounts moved out of Bot 1, separate wallets/referrals, admin switch button. Needs publish to go live.
 - [x] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices; multipart delivery tested without a real purchase.
 - [ ] Remove admin force-join bypass and verify join/leave/rejoin checks for all users.
 - [x] Tighten force-join checks and test join/leave/error behavior.
