@@ -908,6 +908,7 @@ export type Database = {
           expires_at: string
           id: string
           message_id: number | null
+          notification_attempts: number
           notified_at: string | null
           otp: string | null
           phone: string | null
@@ -931,6 +932,7 @@ export type Database = {
           expires_at?: string
           id?: string
           message_id?: number | null
+          notification_attempts?: number
           notified_at?: string | null
           otp?: string | null
           phone?: string | null
@@ -954,6 +956,7 @@ export type Database = {
           expires_at?: string
           id?: string
           message_id?: number | null
+          notification_attempts?: number
           notified_at?: string | null
           otp?: string | null
           phone?: string | null
@@ -1117,6 +1120,7 @@ export type Database = {
         Args: { _id: string; _kind: string; _value: string }
         Returns: boolean
       }
+      bot3_reconcile_sms_schedule: { Args: never; Returns: undefined }
       bot3_reserve_sms: {
         Args: {
           _charge: number
