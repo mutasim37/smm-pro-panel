@@ -417,7 +417,7 @@ async function showSummary(chatId: number, draft: { serviceId: number; link: str
   }
   rows.push([{ text: "📱 Direct Pay with bKash", callback_data: "pay:b" }]);
   rows.push([{ text: "🪙 Direct Pay with USDT", callback_data: "pay:d" }]);
-  rows.push([{ text: "✖️ Cancel", callback_data: "cancel" }]);
+  rows.push([{ text: "🎟 Apply Coupon", callback_data: "cpn" }, { text: "✖️ Cancel", callback_data: "cancel" }]);
 
   await sendMessage(
     chatId,
@@ -449,6 +449,14 @@ async function submitOrder(
     return;
   }
 
+  const coupon = (draft as { coupon?: string }).coupon;
+  if (coupon && !(await redeemCoupon(chatId, coupon))) {
+    await clearState(chatId);
+    await sendMessage(chatId, "🚫 <b>Coupon no longer valid.</b> Nothing was charged — please start the order again.", {
+      reply_markup: ik([[{ text: "🛍 Services", callback_data: "svc" }]]),
+    });
+    return;
+  }
   await sendChatAction(chatId);
   const balanceAfter = await adjustBalance(chatId, -draft.charge);
 
