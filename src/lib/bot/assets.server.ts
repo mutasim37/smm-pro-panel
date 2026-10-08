@@ -5,9 +5,9 @@ import smmLogo from "@/assets/fsmm-logo.jpg.asset.json";
 import tgWelcome from "@/assets/ftg-welcome.jpg.asset.json";
 import tgAdmin from "@/assets/ftg-admin.jpg.asset.json";
 import tgLogo from "@/assets/ftg-logo.jpg.asset.json";
-import smsWelcome from "@/assets/fsms-welcome-white.jpg";
-import smsAdmin from "@/assets/fsms-admin-white.jpg";
-import smsLogo from "@/assets/fsms-logo-white.jpg";
+import smsWelcome from "@/assets/fsms-welcome-white.jpg.asset.json";
+import smsAdmin from "@/assets/fsms-admin-white.jpg.asset.json";
+import smsLogo from "@/assets/fsms-logo-white.jpg.asset.json";
 import { currentBot } from "./scope.server";
 
 const DEFAULT_ORIGIN = "https://project--3bdaeddb-ac0d-42c9-851d-cf8e9a9ee2dd-dev.lovable.app";
@@ -18,10 +18,10 @@ function origin(): string {
 
 export const BANNERS = {
   get welcome() {
-    return currentBot() === "sms" ? `${origin()}${smsWelcome}` : currentBot() === "tg" ? `${origin()}${tgWelcome.url}` : `${origin()}${welcome.url}`;
+    return currentBot() === "sms" ? `${origin()}${smsWelcome.url}` : currentBot() === "tg" ? `${origin()}${tgWelcome.url}` : `${origin()}${welcome.url}`;
   },
   get admin() {
-    return currentBot() === "sms" ? `${origin()}${smsAdmin}` : currentBot() === "tg" ? `${origin()}${tgAdmin.url}` : `${origin()}${admin.url}`;
+    return currentBot() === "sms" ? `${origin()}${smsAdmin.url}` : currentBot() === "tg" ? `${origin()}${tgAdmin.url}` : `${origin()}${admin.url}`;
   },
 };
 
@@ -32,6 +32,6 @@ export const LOGO = {
   },
   /** Logo of whichever bot is handling the update. */
   get current() {
-    return currentBot() === "sms" ? `${origin()}${smsLogo}` : currentBot() === "tg" ? `${origin()}${tgLogo.url}` : `${origin()}${smmLogo.url}`;
+    return currentBot() === "sms" ? `${origin()}${smsLogo.url}` : currentBot() === "tg" ? `${origin()}${tgLogo.url}` : `${origin()}${smmLogo.url}`;
   },
 };

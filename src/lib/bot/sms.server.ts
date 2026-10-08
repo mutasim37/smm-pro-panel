@@ -56,6 +56,7 @@ async function quote(ctx: SmsCtx, service: string, country: string) {
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
+  if(typeof state.data["service"]!=="string" || typeof state.data["country"]!=="string" || typeof state.data["key"]!=="string" || !Number.isFinite(Number(state.data["charge"]))) return smsRespond(ctx,"This checkout expired. Choose a number again.");
   const service=String(state.data["service"]), country=String(state.data["country"]);
   const cat=await smsCatalog(true); const item=cat.prices[country]?.[service];
   if(!item || Number(item.count)<=0) return smsRespond(ctx,"Out of stock. No balance was charged.");
