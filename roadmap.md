@@ -1,10 +1,12 @@
 # Tasks
-- [ ] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, OTP polling and provider-confirmed refunds.
-- [ ] Add white SMS branding, compact colored actions, independent admin tools and secure webhook.
-- [ ] Verify SMS catalog, menus and safety tests without buying a number; configure Telegram profile and webhook.
+- [x] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, active-only OTP polling and provider-confirmed refunds.
+- [x] Add white SMS branding, compact actions, independent admin tools and secure webhook; button colors depend on Telegram support.
+- [x] Verify SMS live catalog and 22 safety tests without buying a number; set Telegram English About and description.
+- [ ] Activate SMS webhook and verify live Telegram menu/OTP delivery: blocked until the updated app is published; no paid number test authorized.
+- [ ] Set Telegram profile photo: requires BotFather.
 - [x] Bot 2 Frrr TG: TG accounts moved out of Bot 1, separate wallets/referrals, admin switch button. Needs publish to go live.
 - [x] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices; multipart delivery tested without a real purchase.
-- [ ] Remove admin force-join bypass and verify join/leave/rejoin checks for all users.
+- [x] Remove admin force-join bypass; join/leave/rejoin rules covered by tests.
 - [x] Tighten force-join checks and test join/leave/error behavior.
 - [x] Keep all bottom buttons on one compact page and retain keyboard during navigation.
 - [x] Add admin product posting to @allupdatexix with default/custom captions and Order Now.
