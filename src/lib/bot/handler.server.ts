@@ -1299,7 +1299,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 /* --------------------------------- router -------------------------------- */
 
-const SMM_ONLY = new Set(["svc", "ext", "find", "pop", "other", "pl", "pa", "oth", "api", "ct", "sv", "buy", "pay", "ord", "od", "re", "post", "cp"]);
+const SMM_ONLY = new Set(["svc", "ext", "find", "pop", "other", "pl", "pa", "oth", "api", "ct", "sv", "buy", "ord", "od", "re", "post", "cp"]);
 function menuAllowed(pick: string): boolean {
   if (currentBot() === "tg") return !SMM_ONLY.has(pick);
   return pick !== "tg" && pick !== "tgmy";

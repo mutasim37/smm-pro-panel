@@ -1,4 +1,5 @@
 // Admin control panel. Only reachable by chat ids listed in BOT_ADMIN_CHAT_ID.
+import { currentBot } from "./scope.server";
 import { adminChatIds, BRAND, EFFECTS, setBotAccess } from "./config.server";
 import { escapeHtml, ik, sendMessage, sendPhoto, type InlineKeyboard } from "./telegram.server";
 import { BANNERS } from "./assets.server";
@@ -55,6 +56,9 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "🎁 Referrals", callback_data: "a:ref" },
       { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
     ],
+    [currentBot() === "tg"
+      ? { text: "🔁 Manage: XNOVA SMM", url: "https://t.me/" + (process.env["BOT1_USERNAME"] ?? "") }
+      : { text: "🔁 Manage: Frrr TG", url: "https://t.me/Frrrtg_bot" }],
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
   ];
 }
