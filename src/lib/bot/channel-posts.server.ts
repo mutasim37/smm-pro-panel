@@ -33,7 +33,7 @@ export async function channelDraft(input: ProductRef) {
   }
   const payload = ref.kind === "s" ? `p_${ref.id}` : `${ref.kind}_${ref.id}`;
   const url = `https://t.me/${await botUsername()}?start=${payload}`;
-  return { ref, url, caption: `<b>🔥 ${escapeHtml(title)}</b>\n\n💵 <b>Price</b> · ${escapeHtml(price)}\n🔢 <b>Product Code</b> · <code>${ref.kind}_${ref.id}</code>\n\nPremium picks. Competitive prices.\n🚀 Order now from XNOVA SMM.` };
+  return { ref, url, caption: `<b>🔥 ${escapeHtml(title)}</b>\n\n💵 <b>Price</b> · ${escapeHtml(price)}\n🔢 <b>Product Code</b> · <code>${ref.kind}_${ref.id}</code>\n\nPremium picks. Competitive prices.\n🚀 Order now from ${BRAND.name}.` };
 }
 
 export async function publishProduct(adminId: number, ref: ProductRef, customText?: string) {
