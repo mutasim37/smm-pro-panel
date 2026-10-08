@@ -13,7 +13,7 @@ import {
   tg,
   type InlineKeyboard,
 } from "./telegram.server";
-import { BANNERS } from "./assets.server";
+import { BANNERS, LOGO } from "./assets.server";
 import {
   getCatalog,
   needsComments,
@@ -122,6 +122,15 @@ async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
   if (ctx.messageId) await dropMessage(ctx.chatId, ctx.messageId);
   else await clearLastScreen(ctx.chatId);
   remember(ctx.chatId, await sendMessage(ctx.chatId, text, markup));
+}
+
+/** Same clean navigation as respond(), but for photo screens (logo/banner). */
+async function respondPhoto(ctx: Ctx, photoUrl: string, caption: string, keyboard?: InlineKeyboard) {
+  const markup = keyboard ? { reply_markup: ik(keyboard) } : {};
+  if (ctx.messageId) await dropMessage(ctx.chatId, ctx.messageId);
+  else await clearLastScreen(ctx.chatId);
+  const sent = (await sendPhoto(ctx.chatId, photoUrl, caption, markup)) ?? (await sendMessage(ctx.chatId, caption, markup));
+  remember(ctx.chatId, sent);
 }
 
 async function ordersCount(telegramId: number): Promise<number> {
@@ -1521,8 +1530,12 @@ async function routeUpdate(update: any): Promise<void> {
         [{ text: "💬 Chat with support", url: `https://t.me/${supportUsername()}` }],
         [{ text: "✖️ Cancel", callback_data: "cancel" }],
       ]);
-    case "about":
+    case "about": {
+      if (currentBot() === "tg") {
+        return respondPhoto(ctx, LOGO.tg, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
+      }
       return respond(ctx, aboutText(), [[{ text: "🏠 Home", callback_data: "home" }]]);
+    }
     case "find":
       return askCode(ctx);
     case "pop":
