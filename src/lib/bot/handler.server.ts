@@ -125,8 +125,10 @@ async function respond(ctx: Ctx, text: string, keyboard?: InlineKeyboard) {
 }
 
 async function ordersCount(telegramId: number): Promise<number> {
+  // Frrr TG sells accounts only, so its "orders" are purchased accounts.
+  const table = currentBot() === "tg" ? "bot_tg_accounts" : "bot_orders";
   const { count } = await supabaseAdmin
-    .from("bot_orders")
+    .from(table)
     .select("*", { count: "exact", head: true })
     .eq("telegram_id", telegramId);
   return count ?? 0;
