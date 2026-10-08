@@ -1,5 +1,5 @@
 // Growth features: product deep links, popular services, referrals, force-join channel.
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "./store.server";
 import { tg, escapeHtml, type InlineKeyboard } from "./telegram.server";
 import { getCatalog } from "./catalog.server";
 import { getSettings } from "./settings.server";

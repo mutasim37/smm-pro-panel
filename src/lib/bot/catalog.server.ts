@@ -2,7 +2,7 @@
 // applies the reseller markup and keeps everything in a warm in-memory cache.
 import { smmMultiplier } from "./settings.server";
 import { fetchServices, type ProviderService } from "./smmgen.server";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "./store.server";
 
 export type Platform = {
   key: string;

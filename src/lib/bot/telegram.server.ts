@@ -1,5 +1,6 @@
 // Thin, fast Telegram Bot API client. Server-only.
 import { env } from "./config.server";
+import { currentBot, runAsBot } from "./scope.server";
 
 export type InlineButton = {
   text: string;
@@ -9,8 +10,24 @@ export type InlineButton = {
 
 export type InlineKeyboard = InlineButton[][];
 
-function apiUrl(method: string): string {
-  return `https://api.telegram.org/bot${env("TELEGRAM_BOT_TOKEN")}/${method}`;
+let bot2Token: string | null = null;
+async function botToken(): Promise<string> {
+  if (currentBot() !== "tg") return env("TELEGRAM_BOT_TOKEN");
+  if (!bot2Token) {
+    const { supabaseAdmin } = await import("./store.server");
+    const { data } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "bot2_token").maybeSingle();
+    if (!data?.value) throw new Error("Bot 2 token missing");
+    bot2Token = String(data.value);
+  }
+  return bot2Token;
+}
+
+export async function bot2TokenValue(): Promise<string> {
+  return runAsBot("tg", botToken);
+}
+
+async function apiUrl(method: string): Promise<string> {
+  return `https://api.telegram.org/bot${await botToken()}/${method}`;
 }
 
 export async function tg<T = any>(
@@ -18,7 +35,7 @@ export async function tg<T = any>(
   payload: Record<string, unknown> = {},
 ): Promise<T | null> {
   try {
-    const res = await fetch(apiUrl(method), {
+    const res = await fetch(await apiUrl(method), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -106,7 +123,7 @@ export async function sendDocumentFile(chatId: number, filename: string, content
   form.set("caption", caption);
   form.set("parse_mode", "HTML");
   try {
-    const response = await fetch(apiUrl("sendDocument"), { method: "POST", body: form });
+    const response = await fetch(await apiUrl("sendDocument"), { method: "POST", body: form });
     const result = await response.json() as { ok?: boolean; result?: unknown };
     return response.ok && result.ok ? result.result : null;
   } catch {
