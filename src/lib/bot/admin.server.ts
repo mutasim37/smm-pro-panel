@@ -1,6 +1,6 @@
 // Admin control panel. Only reachable by chat ids listed in BOT_ADMIN_CHAT_ID.
 import { currentBot } from "./scope.server";
-import { adminChatIds, BRAND, EFFECTS, setBotAccess } from "./config.server";
+import { adminChatIds, BRAND, EFFECTS, setBotAccess, currencies, type CurrencyCode } from "./config.server";
 import { escapeHtml, ik, sendMessage, sendPhoto, type InlineKeyboard } from "./telegram.server";
 import { BANNERS } from "./assets.server";
 import { DIVIDER, usd } from "./views.server";
@@ -272,19 +272,32 @@ export async function startBroadcast(chatId: number): Promise<{ text: string; ke
   };
 }
 
-export async function startBalanceAdjust(chatId: number): Promise<{ text: string; keyboard: InlineKeyboard }> {
-  await setState(chatId, "await_admin_bal", {});
+export async function startBalanceAdjust(chatId: number, code?: CurrencyCode): Promise<{ text: string; keyboard: InlineKeyboard }> {
+  if (!code) {
+    await setState(chatId, "await_admin_bal_currency", {});
+    return {
+      text: `<b>💵 Manual Balance Adjustment</b>\n${DIVIDER}\nChoose the currency for this adjustment.`,
+      keyboard: [
+        [{text:"🇧🇩 BDT · Taka",callback_data:"a:balBDT"},{text:"🇮🇳 INR · Rupee",callback_data:"a:balINR"}],
+        [{text:"🇺🇸 USD · Dollar",callback_data:"a:balUSD"}],
+        ...backRow(),
+      ],
+    };
+  }
+  const currency = currencies()[code];
+  await setState(chatId, "await_admin_bal", {currency: code, rate: currency.rate});
   return {
     text: [
       "<b>💵 Manual Balance Adjustment</b>",
       DIVIDER,
-      "Send the user ID and the amount in <b>USD</b>, separated by a space.",
+      `Send the user ID and the amount in <b>${code}</b>, separated by a space.`,
       "",
-      "<blockquote>Add $10:  <code>123456789 10</code>\nDeduct $5:  <code>123456789 -5</code></blockquote>",
+      `<blockquote>Add ${currency.symbol}100:  <code>123456789 100</code>\nDeduct ${currency.symbol}50:  <code>123456789 -50</code></blockquote>`,
+      `Exchange rate · 1 USD = ${currency.rate} ${code}`,
       "",
       "Send /cancel to abort.",
     ].join("\n"),
-    keyboard: backRow(),
+    keyboard: [[{text:"💱 Change currency",callback_data:"a:bal"}],...backRow()],
   };
 }
 
