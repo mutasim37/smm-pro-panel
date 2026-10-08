@@ -13,7 +13,7 @@ import {
   tg,
   type InlineKeyboard,
 } from "./telegram.server";
-import { BANNERS } from "./assets.server";
+import { BANNERS, LOGO } from "./assets.server";
 import {
   getCatalog,
   needsComments,
