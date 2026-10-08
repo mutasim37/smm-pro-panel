@@ -36,7 +36,7 @@ export function shareUrl(url: string, text: string): string {
 /* ---------------------------- force join channel --------------------------- */
 
 export async function forceChannel(): Promise<string> {
-  const { data, error } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", "force_channel").maybeSingle();
+  const { data, error } = await supabaseAdmin.from("bot_secrets").select("value").eq("name", currentBot() === "sms" ? "sms_force_channel" : "force_channel").maybeSingle();
   if (error) throw new Error("Unable to read force-channel configuration");
   return String(data?.value ?? "").trim();
 }
@@ -47,7 +47,7 @@ export async function setForceChannel(input: string): Promise<string> {
   value = value.replace(/^https?:\/\/t\.me\//i, "").replace(/^@/, "").replace(/\/.*$/, "");
   if (value && !/^[A-Za-z0-9_]{4,64}$/.test(value)) throw new Error("Invalid channel username");
   const stored = value ? `@${value}` : "";
-  const { error } = await supabaseAdmin.from("bot_secrets").upsert({ name: "force_channel", value: stored }, { onConflict: "name" });
+  const { error } = await supabaseAdmin.from("bot_secrets").upsert({ name: currentBot() === "sms" ? "sms_force_channel" : "force_channel", value: stored }, { onConflict: "name" });
   if (error) throw new Error("Unable to save force channel");
   return stored;
 }
@@ -168,7 +168,7 @@ export async function referralView(telegramId: number): Promise<{ text: string; 
       `💰 <b>Total earned</b> · <code>${money(Number(me?.ref_earned ?? 0))}</code>`,
     ].join("\n"),
     keyboard: [
-      [{ text: "📤 Share Invite Link", url: shareUrl(link, "Premium SMM services, TG accounts & more — join me here:") }],
+      [{ text: "📤 Share Invite Link", url: shareUrl(link, currentBot() === "sms" ? "Virtual numbers and private OTP delivery — join Frrr SMS:" : "Premium SMM services, TG accounts & more — join me here:") }],
       [{ text: "🏠 Home", callback_data: "home" }],
     ],
   };
