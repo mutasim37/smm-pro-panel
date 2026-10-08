@@ -1,5 +1,5 @@
 export const SMS_WINDOW_MS = 20 * 60_000;
-export const SMS_CANCEL_DELAY_MS = 2 * 60_000;
+export const SMS_CANCEL_DELAY_MS = 5 * 60_000;
 export function smsPrice(cost: number, markup = 30) {
   return Math.ceil(cost * (1 + markup / 100) * 100000) / 100000;
 }
