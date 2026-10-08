@@ -8,7 +8,7 @@ test("OTP delivery prohibits refund even after supplier cancel",()=>assert.equal
 test("expiry or cancel status alone never authorizes refund",()=>assert.equal(canRefundSms("STATUS_CANCEL",null),false));
 test("explicit supplier cancel without OTP permits refund",()=>assert.equal(canRefundSms("ACCESS_CANCEL",null),true));
 test("activation window is twenty minutes",()=>assert.equal(SMS_WINDOW_MS,1200000));
-test("early cancel delay is two minutes",()=>assert.equal(SMS_CANCEL_DELAY_MS,120000));
+test("early cancel delay is five minutes",()=>assert.equal(SMS_CANCEL_DELAY_MS,300000));
 test("supplier OTP response retains the whole code",()=>assert.deepEqual(parseSmsStatus("STATUS_OK:012345"),{kind:"otp",code:"012345"}));
 test("SMS wallets and settings do not share TG or SMM tables",()=>runAsBot("sms",()=>{assert.equal(scopedTable("bot_users"),"bot3_users");assert.equal(scopedTable("bot_settings"),"bot3_settings");assert.equal(scopedRpc("bot_adjust_balance"),"bot3_adjust_balance");}));
 test("payment identifiers are shared to prevent cross-bot reuse",()=>runAsBot("sms",()=>{assert.equal(scopedTable("bot_deposits"),"bot_deposits");assert.equal(scopedTable("bot_bkash_sms"),"bot_bkash_sms");}));

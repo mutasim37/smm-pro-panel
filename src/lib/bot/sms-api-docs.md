@@ -41,7 +41,7 @@ Never disclose your key or someone else's phone/OTP. Only your own paid orders c
 - `add`: service code, country ID from catalog, request_id UUID. One activation. Wallet is charged before provider purchase, current stock and price rechecked. Returns order UUID, phone, charge and Waiting status.
 - `orders`: up to the latest 50 owned numbers.
 - `status` or `otp`: `order` UUID. Returns id, phone, status, otp (null while waiting), charge, refunded and expires_at.
-- `cancel`: `order` UUID. Cancellation cannot succeed in the first two minutes and remains subject to provider approval. Never refunded after OTP. Read the returned status rather than assuming success.
+- `cancel`: `order` UUID. Cancellation cannot succeed in the first five minutes and remains subject to provider approval. Never refunded after OTP. Once refunded, `otp` no longer returns a code. Read the returned status rather than assuming success.
 
 ```json
 {"action":"add","service":"tg","country":"0","request_id":"3bdaeddb-ac0d-42c9-851d-cf8e9a9ee2dd"}
