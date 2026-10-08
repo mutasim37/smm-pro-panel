@@ -3,6 +3,7 @@ import welcome from "@/assets/bot-welcome.jpg.asset.json";
 import admin from "@/assets/bot-admin.jpg.asset.json";
 import tgWelcome from "@/assets/frrr-welcome.jpg.asset.json";
 import tgAdmin from "@/assets/frrr-admin.jpg.asset.json";
+import tgLogo from "@/assets/frrr-tg-logo.png.asset.json";
 import { currentBot } from "./scope.server";
 
 const DEFAULT_ORIGIN = "https://project--3bdaeddb-ac0d-42c9-851d-cf8e9a9ee2dd-dev.lovable.app";
