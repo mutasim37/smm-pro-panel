@@ -1,7 +1,6 @@
 // Reseller API (SMM-panel standard): key auth, services/add/status/balance. Money in USD.
-import { getCatalog, isQuantityFree, needsComments, priceFor } from "./catalog.server";
-import { placeOrder } from "./smmgen.server";
-import { adjustBalance, getUser, supabaseAdmin } from "./store.server";
+import { getCatalog } from "./catalog.server";
+import { getUser, supabaseAdmin } from "./store.server";
 import { currentBot } from "./scope.server";
 import { apiAddress, apiDocsAddress } from "./api-rules";
 
@@ -52,44 +51,7 @@ export async function handleApi(params: Record<string, string>): Promise<unknown
     }));
   }
 
-  if (action === "add") {
-    const catalog = await getCatalog();
-    const service = catalog.services.get(Number(params["service"]));
-    if (!service) return { error: "Incorrect service ID" };
-    const link = (params["link"] ?? "").trim();
-    if (!link || link.length > 500) return { error: "Link is required" };
-    let comments: string | undefined;
-    let quantity = Number(params["quantity"] ?? 0);
-    if (needsComments(service)) {
-      comments = (params["comments"] ?? "").trim();
-      if (!comments) return { error: "Comments are required for this service" };
-      quantity = comments.split("\n").filter((l) => l.trim()).length;
-    }
-    if (isQuantityFree(service) && !quantity) quantity = service.min;
-    if (!Number.isInteger(quantity) || quantity < service.min || quantity > service.max)
-      return { error: `Quantity must be between ${service.min} and ${service.max}` };
-    const charge = priceFor(service, quantity);
-    const user = await getUser(uid);
-    if (!user || Number(user.balance) + 0.00001 < charge) return { error: "Not enough funds on balance" };
-
-    const balance = await adjustBalance(uid, -charge);
-    const { data: order } = await supabaseAdmin.from("bot_orders").insert({
-      telegram_id: uid, service_id: service.id, service_name: service.name, category: service.category,
-      link, quantity, comments: comments ?? null, charge, status: "processing", source: "api",
-    }).select("id").single();
-    try {
-      const result = await placeOrder({ service: service.id, link, quantity: comments ? undefined : quantity, comments });
-      if (!result.order) throw new Error(result.error ?? "Order rejected");
-      await supabaseAdmin.from("bot_orders").update({ provider_order_id: String(result.order), status: "in progress", updated_at: new Date().toISOString() }).eq("id", order?.id ?? "");
-      await supabaseAdmin.from("bot_users").update({ total_spent: Number(user.total_spent) + charge }).eq("telegram_id", uid);
-      import("./growth.server").then((g) => g.rewardReferrer(uid, charge)).catch(() => null);
-      return { order: order?.id, charge: fmt(charge), currency: "USD", balance: fmt(balance) };
-    } catch {
-      const refunded = await adjustBalance(uid, charge);
-      await supabaseAdmin.from("bot_orders").update({ status: "failed", refunded: charge }).eq("id", order?.id ?? "");
-      return { error: "Order could not be placed, charge refunded", balance: fmt(refunded) };
-    }
-  }
+  if (action === "add") return { error: "Use the dedicated bot API with request_id" };
 
   if (action === "status") {
     const ids = (params["orders"] ?? params["order"] ?? "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 100);

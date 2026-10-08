@@ -1,10 +1,12 @@
-- [ ] Separate SMM/TG/SMS reseller APIs and Markdown docs, per-bot keys and wallet-protected actions.
-- [ ] Publish latest app, register all three Telegram webhooks and verify live APIs without buying stock.
+- [x] Separate SMM/TG/SMS reseller APIs and Markdown docs, per-bot keys and wallet-protected actions.
+- [x] Publish latest app, register all three Telegram webhooks and verify live API docs/authentication without buying stock. SMM wallet checked with existing key.
 # Tasks
 - [x] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, active-only OTP polling and provider-confirmed refunds.
 - [x] Add white SMS branding, compact actions, independent admin tools and secure webhook; button colors depend on Telegram support.
 - [x] Verify SMS live catalog and 22 safety tests without buying a number; set Telegram English About and description.
-- [ ] Activate SMS webhook and verify live Telegram menu/OTP delivery: blocked until the updated app is published; no paid number test authorized.
+- [x] Activate all three production webhooks; authenticated 200 and unauthorized 401 checked live.
+- [ ] Verify paid SMS purchase/OTP delivery: no paid number test authorized.
+- [ ] Verify TG/SMS customer wallet flows: owner account has not started these bots; no existing reseller keys.
 - [ ] Set Telegram profile photo: requires BotFather.
 - [x] Bot 2 Frrr TG: TG accounts moved out of Bot 1, separate wallets/referrals, admin switch button. Needs publish to go live.
 - [x] Deliver the uploaded extension guide as an MD document after purchase with read-first and reseller notices; multipart delivery tested without a real purchase.

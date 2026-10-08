@@ -20,7 +20,7 @@ export async function resellerRequest(request: Request,bot: BotId) {
   const body=request.headers.get('content-type')?.includes('application/json')?JSON.parse(text):Object.fromEntries(new URLSearchParams(text));
   const normalized=Object.fromEntries(Object.entries(body).map(([k,v])=>[k,Array.isArray(v)?v.join(','):String(v)]));
   const parsed=schema.safeParse(normalized);if(!parsed.success)return Response.json({error:'Invalid parameters'},{status:400,headers});
-  const p=parsed.data;p['key']=request.headers.get('X-API-Key')??p['key']??'';
+  const p=parsed.data;p['key']=request.headers.get('X-API-Key')??p['key']??'';p['action']=(p['action']??'').toLowerCase();
   return await runAsBot(bot,async()=>{
    if(!/^[A-Za-z0-9]{16}$/.test(p['key']??''))return Response.json({error:'Invalid API key'},{status:401,headers});
    const {data:key}=await supabaseAdmin.from('bot_api_keys').select('telegram_id').eq('api_key',p['key']??'').maybeSingle();
