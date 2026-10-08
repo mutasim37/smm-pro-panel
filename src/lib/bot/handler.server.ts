@@ -1,4 +1,5 @@
 import { handleSmsCallback, handleSmsStep, showSmsServices, showSmsOrders, adminSmsView } from "./sms.server";
+import { parseBalanceAdjustment } from "./balance-adjustment";
 // Core bot brain: routing, menus, order flow, wallet flow.
 import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies } from "./config.server";
 import { syncOrder, FINAL_STATUSES, type OrderRow } from "./orders.server";
@@ -1238,16 +1239,17 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
   }
 
   if (state.step === "await_admin_bal" && isAdmin(chatId)) {
-    const match = /^(\d{3,15})\s+(-?\d+(?:\.\d+)?)$/.exec(text.replace(/[$,]/g, "").trim());
-    if (!match) {
-      await sendMessage(chatId, "⚠️ Format: <code>USER_ID AMOUNT</code> — e.g. <code>123456789 10</code>");
+    const selectedCode = isCurrency(state.data.currency) ? state.data.currency : "USD";
+    const adjustment = parseBalanceAdjustment(text, Number(state.data.rate ?? currencies()[selectedCode].rate));
+    if (!adjustment) {
+      await sendMessage(chatId, `⚠️ Send <code>USER_ID AMOUNT</code> in ${selectedCode} — e.g. <code>123456789 100</code>. Amount must be nonzero.`);
       return true;
     }
-    const targetId = Number(match[1]);
-    const amount = Math.round(Number(match[2]) * 100000) / 100000;
+    const targetId = adjustment.userId;
+    const amount = adjustment.amountUsd;
     const target = await getUser(targetId);
-    if (!target || amount === 0) {
-      await sendMessage(chatId, "⚠️ User not found or amount is zero.");
+    if (!target || Number(target.balance) + amount < 0) {
+      await sendMessage(chatId, "⚠️ User not found or deduction exceeds their balance.");
       return true;
     }
     const balance = await adjustBalance(targetId, amount);
@@ -1261,7 +1263,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       telegram_id: targetId,
       amount_credited: amount,
       status: "confirmed",
-      note: `admin-manual by ${chatId}`,
+      note: `admin-manual by ${chatId}; ${adjustment.enteredAmount} ${selectedCode}; rate ${adjustment.rate}; bot ${currentBot()}`,
       confirmed_at: new Date().toISOString(),
     });
     await clearState(chatId);
@@ -1269,8 +1271,8 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       "<b>✅ Balance updated</b>",
       DIVIDER,
       `👤 <code>${targetId}</code> ${target.username ? "@" + escapeHtml(target.username) : ""}`,
-      `${amount > 0 ? "➕ Added" : "➖ Deducted"} · <code>${usd(Math.abs(amount))}</code>`,
-      `💰 New balance · <code>${usd(balance)}</code>`,
+      `${amount > 0 ? "➕ Added" : "➖ Deducted"} · <code>${currencies()[selectedCode].symbol}${Math.abs(adjustment.enteredAmount).toLocaleString("en-US")} ${selectedCode}</code>`,
+      `💰 New balance · <code>${(balance * adjustment.rate).toFixed(2)} ${selectedCode}</code>`,
     ].join("\n"), { reply_markup: ik([[{ text: "⬅️ Admin Panel", callback_data: "a:panel" }]]) });
 
     const code = isCurrency(target.currency) ? target.currency : "USD";
@@ -1278,6 +1280,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       sendMessage(targetId, [
         amount > 0 ? "<b>💰 Balance Credited</b>" : "<b>💳 Balance Adjusted</b>",
         DIVIDER,
+        `Adjustment · <code>${Math.abs(adjustment.enteredAmount)} ${selectedCode}</code>`,
         `${amount > 0 ? "Added" : "Deducted"} · <code>${money(Math.abs(amount))}</code>`,
         `New balance · <code>${money(balance)}</code>`,
       ].join("\n"), amount > 0 ? { message_effect_id: EFFECTS.party } : {}),
@@ -1815,6 +1818,12 @@ async function handleCallback(query: any) {
 }
 
 async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
+  if (action.startsWith("bal") && isCurrency(action.slice(3))) {
+    const code = action.slice(3);
+    if (!isCurrency(code)) return;
+    const view = await startBalanceAdjust(ctx.chatId, code);
+    return respond(ctx, view.text, view.keyboard);
+  }
   if (currentBot() === "sms") {
     if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action,page);return respond(ctx,v.text,v.keyboard);}
     if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS markup percentage, e.g. 30.");}
