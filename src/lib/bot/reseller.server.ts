@@ -23,12 +23,13 @@ export async function resellerRequest(request: Request,bot: BotId) {
   const p=parsed.data;p['key']=request.headers.get('X-API-Key')??p['key']??'';
   return await runAsBot(bot,async()=>{
    if(!/^[A-Za-z0-9]{16}$/.test(p['key']??''))return Response.json({error:'Invalid API key'},{status:401,headers});
-   const {data:key}=await supabaseAdmin.from('bot_api_keys').select('telegram_id').eq('api_key',p['key']).maybeSingle();
+   const {data:key}=await supabaseAdmin.from('bot_api_keys').select('telegram_id').eq('api_key',p['key']??'').maybeSingle();
    if(!key)return Response.json({error:'Invalid API key for this bot'},{status:401,headers});
    const uid=Number(key.telegram_id),user=await getUser(uid),action=p['action']??'';
    if(!user||user.is_banned)return Response.json({error:'Account unavailable'},{status:403,headers});
    if(action==='balance')return Response.json({balance:Number(user.balance).toFixed(4),currency:'USD',bot},{headers});
-   if(!apiAccessAllowed(Number(user.balance),user.is_banned)&&!['status','orders','otp','cancel'].includes(action))return Response.json({error:'Not enough funds on balance'},{status:402,headers});
+   if(!apiAccessAllowed(Number(user.balance),user.is_banned)&&!['status','multi_status','orders','otp','cancel','add','reset'].includes(action))return Response.json({error:'Not enough funds on balance'},{status:402,headers});
+   if(action==='multi_status')p['action']='status';
    let result: unknown;
    if(bot==='smm' && action!=='add')result=await handleApi(p);
    else if(action==='add')result=await purchase(uid,p);
@@ -68,6 +69,8 @@ async function purchase(uid:number,p:Record<string,string>) {
   }else throw new Error('Invalid product');
   await supabaseAdmin.from('bot_api_requests').update({status:'completed',result:result as never}).eq('id',id);
   const {rewardReferrer}=await import('./growth.server');await rewardReferrer(uid,charge).catch(()=>null);
+   const {sendMessage}=await import('./telegram.server');
+   await sendMessage(uid,`✅ API order completed\nOrder: ${String(result['order'])}\nCharge: $${charge.toFixed(4)}`).catch(()=>null);
   return result;
  }catch(error){if(error instanceof PhoenixError&&[400,404,409].includes(error.status)){await supabaseAdmin.rpc('bot_api_reject',{_id:id});return {error:'Account rejected; charge refunded'};}
   await supabaseAdmin.from('bot_api_requests').update({status:'review'}).eq('id',id);return {order:id,status:'Review',message:'Payment reserved. Do not submit another purchase. Contact Support.'};}

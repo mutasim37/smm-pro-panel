@@ -45,10 +45,10 @@ export async function handleApi(params: Record<string, string>): Promise<unknown
   if (action === "services") {
     const catalog = await getCatalog();
     const wanted = (params["services"] ?? "").split(",").map((s) => Number(s.trim())).filter((n) => n > 0);
-    const list = wanted.length ? wanted.map((id) => catalog.services.get(id)).filter((s) => !!s) : [...catalog.services.values()];
+    const list = wanted.length ? wanted.flatMap((id) => { const s=catalog.services.get(id); return s ? [s] : []; }) : [...catalog.services.values()];
     return list.map((s) => ({
-      service: s!.id, name: s!.name, type: s!.type, category: s!.category,
-      rate: fmt(s!.price), min: s!.min, max: s!.max, refill: s!.refill, cancel: s!.cancel,
+      service: s.id, name: s.name, type: s.type, category: s.category,
+      rate: fmt(s.price), min: s.min, max: s.max, refill: s.refill, cancel: s.cancel,
     }));
   }
 
@@ -106,7 +106,8 @@ export async function handleApi(params: Record<string, string>): Promise<unknown
         : { error: "Order not found" };
     };
     if (params["orders"]) return Object.fromEntries(ids.map((id) => [id, view(id)]));
-    return view(ids[0]!);
+    const first=ids[0];
+    return first ? view(first) : {error:"Order ID is required"};
   }
 
   return { error: "Incorrect action" };
