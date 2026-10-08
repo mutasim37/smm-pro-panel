@@ -59,18 +59,18 @@ async function quote(ctx: SmsCtx, service: string, country: string) {
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
-  const service=String(state.data.service), country=String(state.data.country);
+  const service=String(state.data["service"]), country=String(state.data["country"]);
   const cat=await smsCatalog(true); const item=cat.prices[country]?.[service];
   if(!item || Number(item.count)<=0) return smsRespond(ctx,"Out of stock. No balance was charged.");
   const charge=smsPrice(Number(item.cost),(await getSettings()).sms_markup_pct);
-  if(charge>Number(state.data.charge)) return quote(ctx,service,country);
-  const {data:id,error}=await supabaseAdmin.rpc("bot3_reserve_sms",{_user:ctx.chatId,_key:String(state.data.key),_service:service,_service_name:cat.services.find(s=>s.code===service)?.name ?? service,_country:country,_country_name:cat.countries[country]?.eng ?? country,_charge:charge,_cost:Number(item.cost)});
+  if(charge>Number(state.data["charge"])) return quote(ctx,service,country);
+  const {data:id,error}=await supabaseAdmin.rpc("bot3_reserve_sms",{_user:ctx.chatId,_key:String(state.data["key"]),_service:service,_service_name:cat.services.find(s=>s.code===service)?.name ?? service,_country:country,_country_name:cat.countries[country]?.eng ?? country,_charge:charge,_cost:Number(item.cost)});
   if(error || !id) return smsRespond(ctx,"Wallet balance is insufficient, or this checkout was already submitted.",[[{text:"💳 Top Up",callback_data:"dep"}],...home]);
   await clearState(ctx.chatId);
   try {
     const response=(await grizzly("getNumber",{service,country,maxPrice:String(item.cost)})).trim();
     const match=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
-    if(!match) {
+    if(!match?.[1] || !match[2]) {
       const {data:refunded}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:id,_kind:"rejected",_value:response});
       if(!refunded) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id);
       return smsRespond(ctx,refunded?"Supplier could not issue a number. Your wallet was fully refunded.":"Supplier result is uncertain. Your payment is reserved for admin review; we will not charge again.");
