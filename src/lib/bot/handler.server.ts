@@ -92,9 +92,19 @@ type Ctx = {
   fromPhoto?: boolean;
 };
 
+/** Per-bot chat → message map: the same Telegram user has the same chat id in both bots. */
+class BotChatMap {
+  private m = new Map<string, number>();
+  private k(chatId: number) { return `${currentBot()}:${chatId}`; }
+  get(chatId: number) { return this.m.get(this.k(chatId)); }
+  set(chatId: number, v: number) { this.m.set(this.k(chatId), v); return this; }
+  delete(chatId: number) { return this.m.delete(this.k(chatId)); }
+  has(chatId: number) { return this.m.has(this.k(chatId)); }
+}
+
 /** Last bot screen per chat (best effort) so a new screen replaces the old one. */
-const lastScreen = new Map<number, number>();
-const keyboardMessages = new Map<number, number>();
+const lastScreen = new BotChatMap();
+const keyboardMessages = new BotChatMap();
 
 export async function dropMessage(chatId: number, messageId?: number) {
   if (!messageId) return;
