@@ -449,12 +449,283 @@ export type Database = {
         }
         Relationships: []
       }
+      bot2_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          telegram_id: number
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          telegram_id: number
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot2_ext_licenses: {
+        Row: {
+          charge: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          license_key: string
+          package_id: number | null
+          package_name: string
+          telegram_id: number
+        }
+        Insert: {
+          charge: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key: string
+          package_id?: number | null
+          package_name: string
+          telegram_id: number
+        }
+        Update: {
+          charge?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key?: string
+          package_id?: number | null
+          package_name?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot2_orders: {
+        Row: {
+          category: string | null
+          charge: number
+          comments: string | null
+          created_at: string
+          error: string | null
+          id: string
+          link: string
+          provider_order_id: string | null
+          quantity: number
+          refunded: number
+          remains: string | null
+          service_id: number
+          service_name: string
+          source: string
+          start_count: string | null
+          status: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          charge: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link: string
+          provider_order_id?: string | null
+          quantity: number
+          refunded?: number
+          remains?: string | null
+          service_id: number
+          service_name: string
+          source?: string
+          start_count?: string | null
+          status?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          charge?: number
+          comments?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          link?: string
+          provider_order_id?: string | null
+          quantity?: number
+          refunded?: number
+          remains?: string | null
+          service_id?: number
+          service_name?: string
+          source?: string
+          start_count?: string | null
+          status?: string
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot2_popular: {
+        Row: {
+          created_at: string
+          service_id: number
+        }
+        Insert: {
+          created_at?: string
+          service_id: number
+        }
+        Update: {
+          created_at?: string
+          service_id?: number
+        }
+        Relationships: []
+      }
+      bot2_states: {
+        Row: {
+          data: Json
+          step: string | null
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          data?: Json
+          step?: string | null
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          step?: string | null
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bot2_tg_accounts: {
+        Row: {
+          charge: number
+          cost: number | null
+          country: string | null
+          created_at: string
+          id: string
+          item_id: number
+          order_ref: string | null
+          phone: string | null
+          telegram_id: number
+        }
+        Insert: {
+          charge: number
+          cost?: number | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          item_id: number
+          order_ref?: string | null
+          phone?: string | null
+          telegram_id: number
+        }
+        Update: {
+          charge?: number
+          cost?: number | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          item_id?: number
+          order_ref?: string | null
+          phone?: string | null
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot2_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot2_users: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string | null
+          first_name: string | null
+          is_admin: boolean
+          is_banned: boolean
+          language_code: string | null
+          last_name: string | null
+          last_seen_at: string
+          ref_earned: number
+          ref_rewarded: boolean
+          referred_by: number | null
+          telegram_id: number
+          total_deposited: number
+          total_spent: number
+          username: string | null
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string | null
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
+          telegram_id: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string | null
+          first_name?: string | null
+          is_admin?: boolean
+          is_banned?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          last_seen_at?: string
+          ref_earned?: number
+          ref_rewarded?: boolean
+          referred_by?: number | null
+          telegram_id?: number
+          total_deposited?: number
+          total_spent?: number
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       bot_adjust_balance: {
+        Args: { _delta: number; _telegram_id: number }
+        Returns: number
+      }
+      bot2_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }
         Returns: number
       }

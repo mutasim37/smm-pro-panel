@@ -64,6 +64,13 @@
       "when": 1791376471274,
       "tag": "0008_reseller_api",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791484540970,
+      "tag": "0009_bot2_frrr_tg",
+      "breakpoints": true
     }
   ]
 }
