@@ -15,9 +15,15 @@ import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
 import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicCronSyncOrdersRouteImport } from './routes/api/public/cron/sync-orders'
 import { Route as ApiPublicCronSyncSmsRouteImport } from './routes/api/public/cron/sync-sms'
+import { Route as ApiPublicSmmDocsRouteImport } from './routes/api/public/smm/docs'
+import { Route as ApiPublicSmmV2RouteImport } from './routes/api/public/smm/v2'
+import { Route as ApiPublicSmsDocsRouteImport } from './routes/api/public/sms/docs'
+import { Route as ApiPublicSmsV2RouteImport } from './routes/api/public/sms/v2'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicTelegramWebhook2RouteImport } from './routes/api/public/telegram/webhook2'
 import { Route as ApiPublicTelegramWebhook3RouteImport } from './routes/api/public/telegram/webhook3'
+import { Route as ApiPublicTgDocsRouteImport } from './routes/api/public/tg/docs'
+import { Route as ApiPublicTgV2RouteImport } from './routes/api/public/tg/v2'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -49,6 +55,26 @@ const ApiPublicCronSyncSmsRoute = ApiPublicCronSyncSmsRouteImport.update({
   path: '/api/public/cron/sync-sms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSmmDocsRoute = ApiPublicSmmDocsRouteImport.update({
+  id: '/api/public/smm/docs',
+  path: '/api/public/smm/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSmmV2Route = ApiPublicSmmV2RouteImport.update({
+  id: '/api/public/smm/v2',
+  path: '/api/public/smm/v2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSmsDocsRoute = ApiPublicSmsDocsRouteImport.update({
+  id: '/api/public/sms/docs',
+  path: '/api/public/sms/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSmsV2Route = ApiPublicSmsV2RouteImport.update({
+  id: '/api/public/sms/v2',
+  path: '/api/public/sms/v2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -67,6 +93,16 @@ const ApiPublicTelegramWebhook3Route =
     path: '/api/public/telegram/webhook3',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTgDocsRoute = ApiPublicTgDocsRouteImport.update({
+  id: '/api/public/tg/docs',
+  path: '/api/public/tg/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicTgV2Route = ApiPublicTgV2RouteImport.update({
+  id: '/api/public/tg/v2',
+  path: '/api/public/tg/v2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,9 +111,15 @@ export interface FileRoutesByFullPath {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
+  '/api/public/smm/v2': typeof ApiPublicSmmV2Route
+  '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
+  '/api/public/sms/v2': typeof ApiPublicSmsV2Route
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
+  '/api/public/tg/docs': typeof ApiPublicTgDocsRoute
+  '/api/public/tg/v2': typeof ApiPublicTgV2Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,9 +128,15 @@ export interface FileRoutesByTo {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
+  '/api/public/smm/v2': typeof ApiPublicSmmV2Route
+  '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
+  '/api/public/sms/v2': typeof ApiPublicSmsV2Route
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
+  '/api/public/tg/docs': typeof ApiPublicTgDocsRoute
+  '/api/public/tg/v2': typeof ApiPublicTgV2Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,9 +146,15 @@ export interface FileRoutesById {
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
+  '/api/public/smm/v2': typeof ApiPublicSmmV2Route
+  '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
+  '/api/public/sms/v2': typeof ApiPublicSmsV2Route
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
+  '/api/public/tg/docs': typeof ApiPublicTgDocsRoute
+  '/api/public/tg/v2': typeof ApiPublicTgV2Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,9 +165,15 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/smm/docs'
+    | '/api/public/smm/v2'
+    | '/api/public/sms/docs'
+    | '/api/public/sms/v2'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
+    | '/api/public/tg/docs'
+    | '/api/public/tg/v2'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,9 +182,15 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/smm/docs'
+    | '/api/public/smm/v2'
+    | '/api/public/sms/docs'
+    | '/api/public/sms/v2'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
+    | '/api/public/tg/docs'
+    | '/api/public/tg/v2'
   id:
     | '__root__'
     | '/'
@@ -133,9 +199,15 @@ export interface FileRouteTypes {
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/smm/docs'
+    | '/api/public/smm/v2'
+    | '/api/public/sms/docs'
+    | '/api/public/sms/v2'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
+    | '/api/public/tg/docs'
+    | '/api/public/tg/v2'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,9 +217,15 @@ export interface RootRouteChildren {
   ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronSyncOrdersRoute: typeof ApiPublicCronSyncOrdersRoute
   ApiPublicCronSyncSmsRoute: typeof ApiPublicCronSyncSmsRoute
+  ApiPublicSmmDocsRoute: typeof ApiPublicSmmDocsRoute
+  ApiPublicSmmV2Route: typeof ApiPublicSmmV2Route
+  ApiPublicSmsDocsRoute: typeof ApiPublicSmsDocsRoute
+  ApiPublicSmsV2Route: typeof ApiPublicSmsV2Route
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
   ApiPublicTelegramWebhook2Route: typeof ApiPublicTelegramWebhook2Route
   ApiPublicTelegramWebhook3Route: typeof ApiPublicTelegramWebhook3Route
+  ApiPublicTgDocsRoute: typeof ApiPublicTgDocsRoute
+  ApiPublicTgV2Route: typeof ApiPublicTgV2Route
 }
 
 declare module '@tanstack/react-router' {
@@ -194,6 +272,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronSyncSmsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/smm/docs': {
+      id: '/api/public/smm/docs'
+      path: '/api/public/smm/docs'
+      fullPath: '/api/public/smm/docs'
+      preLoaderRoute: typeof ApiPublicSmmDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/smm/v2': {
+      id: '/api/public/smm/v2'
+      path: '/api/public/smm/v2'
+      fullPath: '/api/public/smm/v2'
+      preLoaderRoute: typeof ApiPublicSmmV2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sms/docs': {
+      id: '/api/public/sms/docs'
+      path: '/api/public/sms/docs'
+      fullPath: '/api/public/sms/docs'
+      preLoaderRoute: typeof ApiPublicSmsDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sms/v2': {
+      id: '/api/public/sms/v2'
+      path: '/api/public/sms/v2'
+      fullPath: '/api/public/sms/v2'
+      preLoaderRoute: typeof ApiPublicSmsV2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -215,6 +321,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhook3RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tg/docs': {
+      id: '/api/public/tg/docs'
+      path: '/api/public/tg/docs'
+      fullPath: '/api/public/tg/docs'
+      preLoaderRoute: typeof ApiPublicTgDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tg/v2': {
+      id: '/api/public/tg/v2'
+      path: '/api/public/tg/v2'
+      fullPath: '/api/public/tg/v2'
+      preLoaderRoute: typeof ApiPublicTgV2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,9 +345,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronSyncOrdersRoute: ApiPublicCronSyncOrdersRoute,
   ApiPublicCronSyncSmsRoute: ApiPublicCronSyncSmsRoute,
+  ApiPublicSmmDocsRoute: ApiPublicSmmDocsRoute,
+  ApiPublicSmmV2Route: ApiPublicSmmV2Route,
+  ApiPublicSmsDocsRoute: ApiPublicSmsDocsRoute,
+  ApiPublicSmsV2Route: ApiPublicSmsV2Route,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
   ApiPublicTelegramWebhook2Route: ApiPublicTelegramWebhook2Route,
   ApiPublicTelegramWebhook3Route: ApiPublicTelegramWebhook3Route,
+  ApiPublicTgDocsRoute: ApiPublicTgDocsRoute,
+  ApiPublicTgV2Route: ApiPublicTgV2Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

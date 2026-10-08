@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_api_requests: {
+        Row: {
+          bot: string
+          charge: number
+          created_at: string
+          id: string
+          product: string
+          request_key: string
+          result: Json | null
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          bot: string
+          charge: number
+          created_at?: string
+          id?: string
+          product: string
+          request_key: string
+          result?: Json | null
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          bot?: string
+          charge?: number
+          created_at?: string
+          id?: string
+          product?: string
+          request_key?: string
+          result?: Json | null
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       bot_bkash_sms: {
         Row: {
           amount_bdt: number
@@ -784,6 +820,24 @@ export type Database = {
         }
         Relationships: []
       }
+      bot3_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          telegram_id: number
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          telegram_id: number
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       bot3_orders: {
         Row: {
           category: string | null
@@ -1098,6 +1152,17 @@ export type Database = {
       bot_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }
         Returns: number
+      }
+      bot_api_reject: { Args: { _id: string }; Returns: boolean }
+      bot_api_reserve: {
+        Args: {
+          _bot: string
+          _charge: number
+          _key: string
+          _product: string
+          _user: number
+        }
+        Returns: string
       }
       bot_redeem_coupon: {
         Args: { _bot: string; _code: string; _telegram_id: number }

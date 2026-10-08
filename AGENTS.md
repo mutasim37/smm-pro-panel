@@ -43,3 +43,5 @@
 - SMS catalog caches persist in bot3_service_cache; a fresh capped supplier price is required before purchase, never expose supplier rates to customers.
 
 - SMS OTP polling uses one dynamically armed minute job targeting production; stop after active orders and bounded notifications drain so idle bots do not poll.
+
+- Reseller APIs use explicit per-bot /api/public/{bot}/v2 routes and docs, scoped keys, and atomic UUID-idempotent reservations; legacy v2 stays an SMM-only alias. This prevents cross-bot wallet use and duplicate debits.
