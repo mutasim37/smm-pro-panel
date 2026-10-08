@@ -20,3 +20,10 @@ export const BANNERS = {
     return currentBot() === "tg" ? `${origin()}${tgAdmin.url}` : `${origin()}${admin.url}`;
   },
 };
+
+/** Bot logo (Frrr TG only) — shown on the About screen. */
+export const LOGO = {
+  get tg() {
+    return `${origin()}${tgLogo.url}`;
+  },
+};
