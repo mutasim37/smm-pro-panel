@@ -1,5 +1,6 @@
 import { respond } from "./handler.server";
-import { grizzly, smsCatalog } from "./grizzly.server";
+import { grizzly as fivesim, smsCatalog as fivesimCatalog, type SmsCatalog } from "./grizzly.server";
+import { gz, gzCatalog } from "./grizzlysms.server";
 import { supabaseAdmin, getUser, setState, getState, clearState } from "./store.server";
 import { getSettings, setSetting } from "./settings.server";
 import { sendMessage, editMessage, tg, escapeHtml, ik, type InlineKeyboard } from "./telegram.server";
@@ -12,6 +13,24 @@ import { smsPrice, parseSmsStatus, canRefundSms, SMS_CANCEL_DELAY_MS, SMS_WINDOW
 export type SmsCtx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 type SmsOrder = { id: string; telegram_id: number; service_name: string; country_name: string; service: string; country: string; charge: number; provider_id: string | null; phone: string | null; otp: string | null; status: string; created_at: string; expires_at: string; notified_at: string | null; refunded: number };
 const home: InlineKeyboard = [[{ text: "🏠 Home", callback_data: "home" }]];
+/** Server 1 = Grizzly SMS, Server 2 = 5SIM. Grizzly orders store provider_id as "g:<id>". */
+export type Srv = "1" | "2";
+const SRV_NAME: Record<Srv, string> = { "1": "Server 1", "2": "Server 2" };
+const catalogFor = (s: Srv, force = false): Promise<SmsCatalog> => s === "1" ? gzCatalog(force) : fivesimCatalog(force);
+const apiFor = (s: Srv) => s === "1" ? gz : fivesim;
+async function multFor(s: Srv) { const st = await getSettings(); return s === "1" ? st.sms_g_multiplier : st.sms_multiplier; }
+const srvOf = (providerId: string | null): Srv => providerId?.startsWith("g:") ? "1" : "2";
+const rawId = (providerId: string) => providerId.replace(/^g:/, "");
+function split(action: string): { base: string; srv: Srv } {
+  const m = /^(.*?)([12])$/.exec(action);
+  return m && m[1] ? { base: m[1], srv: m[2] as Srv } : { base: action, srv: "2" };
+}
+export async function showSmsServers(ctx: SmsCtx) {
+  await smsRespond(ctx, ["<b>📲 Buy Number</b>", DIVIDER, "Choose a server:", "", "⚡ <b>Server 1</b> · fast delivery", "🌍 <b>Server 2</b> · huge stock, all countries"].join("\n"), [
+    [{ text: "⚡ Server 1", callback_data: "sms:s1:0", style: "primary" } as InlineKeyboard[number][number], { text: "🌍 Server 2", callback_data: "sms:s2:0", style: "success" } as InlineKeyboard[number][number]],
+    ...home,
+  ]);
+}
 export async function smsRespond(ctx: SmsCtx, text: string, keyboard: InlineKeyboard = home) {
   return respond(ctx,text,keyboard);
 }
@@ -23,58 +42,61 @@ function pages(prefix: string, page: number, total: number): InlineKeyboard {
   return [row, ...home];
 }
 const SMS_ICONS: Record<string, string> = { telegram: "✈️", whatsapp: "💬", google: "🔍", facebook: "📘", instagram: "📸", twitter: "🐦", discord: "🎮", microsoft: "🪟", tiktok: "🎵", viber: "📞", wechat: "💚", uber: "🚕", amazon: "📦", netflix: "🎬", openai: "🤖", snapchat: "👻", other: "🌐" };
+const iconFor = (name: string) => { const n = name.toLowerCase(); for (const [k, v] of Object.entries(SMS_ICONS)) if (n.includes(k)) return v; return "📱"; };
 const SMS_TOP = ["telegram", "whatsapp", "google", "facebook", "instagram", "tiktok", "twitter", "openai", "discord", "microsoft", "snapchat", "amazon"];
-export async function showSmsServices(ctx: SmsCtx, page = 0, search = "") {
+export async function showSmsServices(ctx: SmsCtx, page = 0, search = "", srv: Srv = "2") {
   try {
-    if(search) await setState(ctx.chatId,"sms_search_results",{search});
-    const cat = await smsCatalog();
-    const markup = (await getSettings()).sms_multiplier;
+    if(search) await setState(ctx.chatId,"sms_search_results",{search,srv});
+    const cat = await catalogFor(srv);
+    const markup = await multFor(srv);
     const minCost = new Map<string, number>(); const stock = new Map<string, number>();
     for (const p of Object.values(cat.prices)) for (const [k, v] of Object.entries(p)) {
       if (Number(v.count) <= 0) continue;
       stock.set(k, (stock.get(k) ?? 0) + Number(v.count));
       const c = Number(v.cost); if (Number.isFinite(c) && c > 0 && c < (minCost.get(k) ?? Infinity)) minCost.set(k, c);
     }
-    const rank = (c: string) => { const i = SMS_TOP.indexOf(c); return i < 0 ? 99 : i; };
+    const nameOf = (c: string) => (cat.services.find(s=>s.code===c)?.name ?? c).toLowerCase();
+    const rank = (c: string) => { const n = nameOf(c); const i = SMS_TOP.findIndex(t => n === t || n.startsWith(t)); return i < 0 ? 99 : i; };
     const list = cat.services.filter(s => minCost.has(s.code) && (!search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code===search.toLowerCase())).sort((a,b) => rank(a.code)-rank(b.code) || (stock.get(b.code) ?? 0)-(stock.get(a.code) ?? 0) || a.name.localeCompare(b.name));
-    const label = (s: { code: string; name: string }) => `${SMS_ICONS[s.code] ?? "📱"} ${s.name.slice(0, 18)} · ${money(smsPrice(minCost.get(s.code)!, markup))}+`;
+    const label = (s: { code: string; name: string }) => `${iconFor(s.name)} ${s.name.slice(0, 18)} · ${money(smsPrice(minCost.get(s.code)!, markup))}+`;
     const keyboard: InlineKeyboard = [];
     const chunk = list.slice(page*10,page*10+10);
-    for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c:${s.code}:0` }]);
-    if (!search && page === 0) keyboard.unshift([{ text: "🌐 Open Mini App · Quick Select", web_app: { url: "https://smm-pro-panel.lovable.app/sms" } }]);
-    keyboard.push([{ text: "🔎 Search Any Service", callback_data: "sms:search", style: "primary" } as InlineKeyboard[number][number]]);
-    const head = search ? `<b>🔎 Results for “${escapeHtml(search)}”</b>` : page === 0 ? "<b>⭐ Top Services</b>" : "<b>📲 All Services</b>";
+    for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c${srv}:${s.code}:0` }]);
+    if (!search && page === 0 && srv === "2") keyboard.unshift([{ text: "🌐 Open Mini App · Quick Select", web_app: { url: "https://smm-pro-panel.lovable.app/sms" } }]);
+    keyboard.push([{ text: "🔎 Search Any Service", callback_data: `sms:search${srv}`, style: "primary" } as InlineKeyboard[number][number]]);
+    const head = (search ? `<b>🔎 Results for “${escapeHtml(search)}”</b>` : page === 0 ? "<b>⭐ Top Services</b>" : "<b>📲 All Services</b>") + ` · ${SRV_NAME[srv]}`;
     const text = [head, DIVIDER, `🟢 Live stock · <b>${list.length}</b> services`, "💡 Price shown is the cheapest country.", list.length ? "" : "No service found — try another name."].join("\n");
-    await smsRespond(ctx, text, [...keyboard,...pages(search?"sms:results":"sms:s",page,list.length)]);
-  } catch (e) { await smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:"sms:s:0"}],...home]); }
+    await smsRespond(ctx, text, [...keyboard,...pages(search?`sms:results${srv}`:`sms:s${srv}`,page,list.length),[{text:"🔀 Switch Server",callback_data:"sms:srv"}]]);
+  } catch (e) { await smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:`sms:s${srv}:0`}],[{text:"🔀 Switch Server",callback_data:"sms:srv"}],...home]); }
 }
-export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0) {
-  const cat = await smsCatalog();
-  const markup = (await getSettings()).sms_multiplier;
+export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0, srv: Srv = "2") {
+  let cat: SmsCatalog; try { cat = await catalogFor(srv); } catch (e) { return smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:`sms:c${srv}:${service}:0`}],...home]); }
+  const markup = await multFor(srv);
   const list = Object.entries(cat.prices).filter(([,p])=>Number(p[service]?.count)>0).sort((a,b)=>Number(a[1][service]?.cost)-Number(b[1][service]?.cost));
   const name = cat.services.find(s=>s.code===service)?.name ?? service;
   const stockTag = (n: number) => n >= 100 ? "🟢" : n >= 10 ? "🟡" : "🟠";
-  await smsRespond(ctx, [`<b>${SMS_ICONS[service] ?? "📱"} ${escapeHtml(name)}</b>`, DIVIDER, `🌍 <b>${list.length}</b> countries in stock · cheapest first`, "🟢 high · 🟡 medium · 🟠 low stock", "Prices include our service fee."].join("\n"), [
-    ...list.slice(page*10,page*10+10).map(([country,p])=>[{text:`${stockTag(Number(p[service]?.count))} ${(cat.countries[country]?.eng ?? country).slice(0,22)} · ${money(smsPrice(Number(p[service]?.cost),markup))}`,callback_data:`sms:q:${service}:${country}`}]),
-    ...pages(`sms:c:${service}`,page,list.length), [{text:"⬅ Services",callback_data:"sms:s:0"}]
+  await smsRespond(ctx, [`<b>${iconFor(name)} ${escapeHtml(name)}</b> · ${SRV_NAME[srv]}`, DIVIDER, `🌍 <b>${list.length}</b> countries in stock · cheapest first`, "🟢 high · 🟡 medium · 🟠 low stock", "Prices include our service fee."].join("\n"), [
+    ...list.slice(page*10,page*10+10).map(([country,p])=>[{text:`${stockTag(Number(p[service]?.count))} ${(cat.countries[country]?.eng ?? country).slice(0,22)} · ${money(smsPrice(Number(p[service]?.cost),markup))}`,callback_data:`sms:q${srv}:${service}:${country}`}]),
+    ...pages(`sms:c${srv}:${service}`,page,list.length), [{text:"⬅ Services",callback_data:`sms:s${srv}:0`}]
   ]);
 }
-export async function quote(ctx: SmsCtx, service: string, country: string) {
-  const cat = await smsCatalog(); const item = cat.prices[country]?.[service];
+export async function quote(ctx: SmsCtx, service: string, country: string, srv: Srv = "2") {
+  const cat = await catalogFor(srv); const item = cat.prices[country]?.[service];
   if (!item || Number(item.count)<=0) return smsRespond(ctx,"This number is currently out of stock.");
-  const charge = smsPrice(Number(item.cost),(await getSettings()).sms_multiplier);
-  await setState(ctx.chatId,"sms_confirm",{service,country,charge,key:crypto.randomUUID()});
+  const charge = smsPrice(Number(item.cost),await multFor(srv));
+  await setState(ctx.chatId,"sms_confirm",{service,country,charge,srv,key:crypto.randomUUID()});
   const user = await getUser(ctx.chatId);
-  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation available after 5 minutes if no SMS arrives. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
+  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Server · <b>${SRV_NAME[srv]}</b>`,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation available after 5 minutes if no SMS arrives. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
   if(typeof state.data["service"]!=="string" || typeof state.data["country"]!=="string" || typeof state.data["key"]!=="string" || !Number.isFinite(Number(state.data["charge"]))) return smsRespond(ctx,"This checkout expired. Choose a number again.");
   const service=String(state.data["service"]), country=String(state.data["country"]);
-  const cat=await smsCatalog(true); const item=cat.prices[country]?.[service];
+  const srv: Srv = state.data["srv"]==="1" ? "1" : "2";
+  const cat=await catalogFor(srv,true); const item=cat.prices[country]?.[service];
   if(!item || Number(item.count)<=0) return smsRespond(ctx,"Out of stock. No balance was charged.");
-  const charge=smsPrice(Number(item.cost),(await getSettings()).sms_multiplier);
-  if(charge>Number(state.data["charge"])) return quote(ctx,service,country);
+  const charge=smsPrice(Number(item.cost),await multFor(srv));
+  if(charge>Number(state.data["charge"])) return quote(ctx,service,country,srv);
   const {data:id,error}=await supabaseAdmin.rpc("bot3_reserve_sms",{_user:ctx.chatId,_key:String(state.data["key"]),_service:service,_service_name:cat.services.find(s=>s.code===service)?.name ?? service,_country:country,_country_name:cat.countries[country]?.eng ?? country,_charge:charge,_cost:Number(item.cost)});
   if(error || !id) return smsRespond(ctx,"Wallet balance is insufficient, or this checkout was already submitted.",[[{text:"💳 Top Up",callback_data:"dep"}],...home]);
   await clearState(ctx.chatId);
@@ -82,7 +104,7 @@ async function buy(ctx: SmsCtx) {
   const progress=(pct: number,line: string)=>{const f=Math.round(pct/10);return ["<b>📲 Allocating Your Number</b>",DIVIDER,`<code>[${"█".repeat(f)}${"░".repeat(10-f)}] ${pct}%</code>`,line,`🔍 ${label}`,"⏳ Please hold on a moment…"].join("\n");};
   await smsRespond(ctx,progress(20,"📡 Connecting to secure server…"),[]).catch(()=>null);
   try {
-    const pending=grizzly("getNumber",{service,country,maxPrice:String(item.cost)});
+    const pending=apiFor(srv)("getNumber",{service,country,maxPrice:String(item.cost)});
     await new Promise(r=>setTimeout(r,700));
     await smsRespond(ctx,progress(60,"🔎 Finding a fresh number…"),[]).catch(()=>null);
     const response=(await pending).trim();
@@ -90,13 +112,13 @@ async function buy(ctx: SmsCtx) {
     if(!match?.[1] || !match[2]) {
       const {data:refunded}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:id,_kind:"rejected",_value:response});
       if(!refunded) { await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id); await notifyAdmins(`⚠️ SMS purchase needs review · <code>${id}</code> · ${escapeHtml(response.slice(0,80))}`); }
-      return smsRespond(ctx,refunded?`<b>📵 All lines busy</b>\n${DIVIDER}\nNo free number is available for ${label} right now.\n💰 ${money(charge)} has been returned to your wallet.\nPlease try another country.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c:${service}:0`}],...home]);
+      return smsRespond(ctx,refunded?`<b>📵 All lines busy</b>\n${DIVIDER}\nNo free number is available for ${label} right now.\n💰 ${money(charge)} has been returned to your wallet.\nPlease try another country.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c${srv}:${service}:0`}],[{text:"🔀 Try Other Server",callback_data:"sms:srv"}],...home]);
     }
     await smsRespond(ctx,progress(100,"✅ Number allocated"),[]).catch(()=>null);
-    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:match[1],phone:match[2],status:"waiting",expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id);
+    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:srv==="1"?`g:${match[1]}`:match[1],phone:match[2],status:"waiting",expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id);
     if(saveError) { await notifyAdmins(`⚠️ SMS purchase requires reconciliation · order <code>${id}</code> · activation <code>${match[1]}</code>`); return smsRespond(ctx,"Your number was issued and is being finalized. Please do not buy again — Support will assist."); }
     await showSmsOrder(ctx,id);
-    await notifyAdmins(`📲 <b>SMS NUMBER SOLD</b>\nUser <code>${ctx.chatId}</code> · ${usd(charge)}\nOrder <code>${id}</code>`);
+    await notifyAdmins(`📲 <b>SMS NUMBER SOLD</b>\nUser <code>${ctx.chatId}</code> · ${usd(charge)}\nOrder <code>${id}</code> · ${srv==="1"?"Grizzly":"5SIM"}`);
   } catch {
     const {data:issued}=await supabaseAdmin.from("bot3_sms_orders").select("provider_id").eq("id",id).maybeSingle();
     if(!issued?.provider_id) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id);
@@ -112,7 +134,8 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
   if(!order.provider_id || order.otp || ["refunded","failed","received"].includes(order.status)) return;
   const {data:claimed}=await supabaseAdmin.rpc("bot3_claim_sms_poll",{_id:order.id}); if(!claimed) return;
   try {
-    const result=parseSmsStatus((await grizzly("getStatus",{id:order.provider_id})).trim());
+    const api=apiFor(srvOf(order.provider_id)), pid=rawId(order.provider_id);
+    const result=parseSmsStatus((await api("getStatus",{id:pid})).trim());
     if(result.kind==="otp" && result.code) {
       const {data:saved,error}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:order.id,_kind:"otp",_value:result.code});
       if(error || !saved) return;
@@ -122,7 +145,7 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
     if(result.kind==="unknown") return;
     if(cancel || Date.parse(order.expires_at)<=Date.now() || result.kind==="canceled") {
       if(Date.now()-Date.parse(order.created_at)<SMS_CANCEL_DELAY_MS) return;
-      const response=(await grizzly("setStatus",{id:order.provider_id,status:"8"})).trim();
+      const response=(await api("setStatus",{id:pid,status:"8"})).trim();
       if(canRefundSms(response,order.otp)) await supabaseAdmin.rpc("bot3_finish_sms",{_id:order.id,_kind:"refund",_value:response});
       else {
         const review=result.kind==="canceled" || Date.now()>Date.parse(order.expires_at)+5*60000;
@@ -149,27 +172,31 @@ export async function showSmsOrders(ctx: SmsCtx,page=0) {
   await smsRespond(ctx,"<b>📥 My Numbers</b>\n"+DIVIDER,[...(data??[]).map(o=>[{text:`${o.otp?"✅":"📲"} ${o.service_name} · ${o.country_name} · ${o.status}`,callback_data:`sms:o:${o.id}`}]),...pages("sms:my",page,count??0)]);
 }
 export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?: string) {
-  if(action==="results") {const state=await getState(ctx.chatId);return showSmsServices(ctx,Number(a??0),String(state.data["search"]??""));}
-  if(action==="s") return showSmsServices(ctx,Number(a??0));
-  if(action==="c") return showSmsCountries(ctx,a??"",Number(b??0));
-  if(action==="q") return quote(ctx,a??"",b??"");
+  if(action==="srv" || (action==="s" && a===undefined)) return showSmsServers(ctx);
+  const {base,srv}=split(action);
+  if(base==="results") {const state=await getState(ctx.chatId);return showSmsServices(ctx,Number(a??0),String(state.data["search"]??""),state.data["srv"]==="1"?"1":srv);}
+  if(base==="s") return showSmsServices(ctx,Number(a??0),"",srv);
+  if(base==="c") return showSmsCountries(ctx,a??"",Number(b??0),srv);
+  if(base==="q") return quote(ctx,a??"",b??"",srv);
   if(action==="buy") return buy(ctx);
   if(action==="my") return showSmsOrders(ctx,Number(a??0));
   if(action==="o" || action==="x") return showSmsOrder(ctx,a??"",action==="x");
-  if(action==="search") {await setState(ctx.chatId,"sms_search",{});return smsRespond(ctx,"Send a service name or code, such as Telegram or tg.");}
+  if(base==="search") {await setState(ctx.chatId,"sms_search",{srv});return smsRespond(ctx,"Send a service name or code, such as Telegram or tg.");}
 }
 export async function handleSmsStep(chatId: number,text: string,step: string|null) {
-  if(step==="sms_search" || step==="sms_search_results") {await clearState(chatId);await showSmsServices({chatId},0,text);return true;}
-  if(step==="await_admin_sms" && isAdmin(chatId)) {const n=Number(text);if(!Number.isFinite(n)||n<1||n>1000){await sendMessage(chatId,"Send a multiplier between 1 and 1000, e.g. 3 or 1.5.");return true;}await setSetting("sms_multiplier",n);await clearState(chatId);await sendMessage(chatId,`✅ SMS price multiplier saved: ${n}×`);return true;}
+  if(step==="sms_search" || step==="sms_search_results") {const st=await getState(chatId);const srv: Srv=st.data["srv"]==="1"?"1":"2";await clearState(chatId);await showSmsServices({chatId},0,text,srv);return true;}
+  if(step==="await_admin_smsg" && isAdmin(chatId)) {const n=Number(text);if(!Number.isFinite(n)||n<1||n>1000){await sendMessage(chatId,"Send a multiplier between 1 and 1000, e.g. 2.1.");return true;}await setSetting("sms_g_multiplier",n);await clearState(chatId);await sendMessage(chatId,`✅ Grizzly (Server 1) multiplier saved: ${n}×`);return true;}
+  if(step==="await_admin_sms" && isAdmin(chatId)) {const n=Number(text);if(!Number.isFinite(n)||n<1||n>1000){await sendMessage(chatId,"Send a multiplier between 1 and 1000, e.g. 3 or 1.5.");return true;}await setSetting("sms_multiplier",n);await clearState(chatId);await sendMessage(chatId,`✅ 5SIM (Server 2) multiplier saved: ${n}×`);return true;}
   return false;
 }
 export async function adminSmsView(action: string,page=0): Promise<{text:string;keyboard:InlineKeyboard}> {
-  const keyboard: InlineKeyboard=[[{text:"✏ Edit SMS Multiplier",callback_data:"a:psms"}],[{text:"⬅ Admin Panel",callback_data:"a:panel"}]];
-  if(action==="pricing") return {text:`<b>SMS Price Multiplier</b>\n${DIVIDER}\nSupplier price × <b>${(await getSettings()).sms_multiplier}</b>\nExample: $1.00 → $${(await getSettings()).sms_multiplier.toFixed(2)}`,keyboard};
-  if(action==="provider") {const response=await grizzly("getBalance"); const n=Number(response.replace("ACCESS_BALANCE:",""));return {text:`<b>5SIM Balance</b>\n${DIVIDER}\n${Number.isFinite(n)?usd(n):"Unavailable"}`,keyboard};}
-  if(action==="refresh") {const cat=await smsCatalog(true);return {text:`✅ Live catalog refreshed · ${cat.services.length} services`,keyboard};}
+  const keyboard: InlineKeyboard=[[{text:"✏ Grizzly ×",callback_data:"a:psmsg"},{text:"✏ 5SIM ×",callback_data:"a:psms"}],[{text:"⬅ Admin Panel",callback_data:"a:panel"}]];
+  const bal=async (api: typeof gz)=>{try{const n=Number((await api("getBalance")).replace("ACCESS_BALANCE:",""));return Number.isFinite(n)?usd(n):"Unavailable";}catch{return "Unavailable";}};
+  if(action==="pricing") {const st=await getSettings();return {text:`<b>SMS Price Multipliers</b>\n${DIVIDER}\n⚡ Server 1 · Grizzly SMS · <b>${st.sms_g_multiplier}×</b>\n🌍 Server 2 · 5SIM · <b>${st.sms_multiplier}×</b>\nExample Grizzly: $1.00 → $${st.sms_g_multiplier.toFixed(2)}`,keyboard};}
+  if(action==="provider") {const [g,f]=await Promise.all([bal(gz),bal(fivesim)]);return {text:`<b>Server Balances</b>\n${DIVIDER}\n⚡ Server 1 · Grizzly SMS · <b>${g}</b>\n🌍 Server 2 · 5SIM · <b>${f}</b>`,keyboard};}
+  if(action==="refresh") {const [g,f]=await Promise.allSettled([gzCatalog(true),fivesimCatalog(true)]);const n=(r: PromiseSettledResult<SmsCatalog>)=>r.status==="fulfilled"?`${r.value.services.length} services`:"failed";return {text:`✅ Catalog refreshed\n⚡ Grizzly · ${n(g)}\n🌍 5SIM · ${n(f)}`,keyboard};}
   const {data,count}=await supabaseAdmin.from("bot3_sms_orders").select("*",{count:"exact"}).order("created_at",{ascending:false}).range(page*10,page*10+9);
-  return {text:["<b>SMS Orders</b>",DIVIDER,...(data??[]).map(o=>`${o.service_name} · ${o.country_name} · ${usd(Number(o.charge))}\n<code>${o.telegram_id}</code> · ${o.status}`)].join("\n\n"),keyboard:[...pages("a:orders",page,count??0),...keyboard]};
+  return {text:["<b>SMS Orders</b>",DIVIDER,...(data??[]).map(o=>`${o.provider_id?.startsWith("g:")?"⚡ Grizzly":o.provider_id?"🌍 5SIM":"—"} · ${o.service_name} · ${o.country_name} · ${usd(Number(o.charge))}\n<code>${o.telegram_id}</code> · ${o.status}`)].join("\n\n"),keyboard:[...pages("a:orders",page,count??0),...keyboard]};
 }
 export async function syncActiveSms() {
   const {data}=await supabaseAdmin.from("bot3_sms_orders").select("*").in("status",["waiting","cancel_pending"]).order("updated_at",{ascending:true}).limit(50);

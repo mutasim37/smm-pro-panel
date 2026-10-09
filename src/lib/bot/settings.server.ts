@@ -2,8 +2,8 @@
 import { currentBot } from "./scope.server";
 import { supabaseAdmin } from "./store.server";
 
-export type Settings = { smm_markup_pct: number; tg_multiplier: number; ref_pct: number; sms_markup_pct: number; sms_multiplier: number };
-const DEFAULTS: Settings = { smm_markup_pct: 40, tg_multiplier: 3, ref_pct: 5, sms_markup_pct: 30, sms_multiplier: 3 };
+export type Settings = { smm_markup_pct: number; tg_multiplier: number; ref_pct: number; sms_markup_pct: number; sms_multiplier: number; sms_g_multiplier: number };
+const DEFAULTS: Settings = { smm_markup_pct: 40, tg_multiplier: 3, ref_pct: 5, sms_markup_pct: 30, sms_multiplier: 3, sms_g_multiplier: 2.1 };
 const TTL_MS = 30 * 1000;
 const caches = new Map<string, { value: Settings; at: number }>();
 
