@@ -216,7 +216,8 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
       return;
     }
     if(shouldCancelSms(latest.status,cancel,latest.expires_at) || result.kind==="canceled") {
-      if(Date.now()-Date.parse(order.created_at)<SMS_CANCEL_DELAY_MS) return;
+      const sessionStarted=Date.parse(order.expires_at)-smsWindowMs(srvOf(order.provider_id));
+      if(Date.now()-sessionStarted<SMS_CANCEL_DELAY_MS) return;
       const response=(await api("setStatus",{id:pid,status:"8"})).trim();
       const lateSms=parseSmsStatus(response);
       if(lateSms.kind==="otp" && lateSms.code) {
