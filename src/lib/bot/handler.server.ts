@@ -783,6 +783,7 @@ async function askBkashAmount(ctx: Ctx) {
       DIVIDER,
       "How much would you like to add? Send the amount in <b>Taka (BDT)</b>.",
       "",
+      `📉 <b>Minimum</b> · <code>৳${Math.ceil(minDepositUsd() * currencies().BDT.rate)}</code> (≈ $${minDepositUsd().toFixed(2)})`,
       "<blockquote>Example: <code>500</code></blockquote>",
     ].join("\n"),
     [[{ text: "✖️ Cancel", callback_data: "cancel" }]],
