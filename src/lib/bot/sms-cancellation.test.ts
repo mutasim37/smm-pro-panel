@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { afterEach, expect, mock, test } from "bun:test";
 
 let order: Record<string, unknown>;
@@ -41,7 +42,7 @@ mock.module("./store.server", () => ({
 }));
 const { syncSmsOrder } = await import("./sms.server");
 function reset(status = "waiting") {
-  order = { id: "order", telegram_id: 1, provider_id: "123", otp: null, refunded: 0, charge: 0.5, status, created_at: "2026-01-01T00:00:00Z", expires_at: "2099-01-01T00:00:00Z" };
+  order = { id: "order", telegram_id: 1, provider_id: "123", otp: null, refunded: 0, charge: 0.5, status, created_at: new Date(Date.now()-6*60000).toISOString(), expires_at: new Date(Date.now()+9*60000).toISOString() };
   lock = true; reads = 0; credits = 0; providerCalls = [];
   replies = { getStatus: "STATUS_WAIT_CODE", setStatus: "ACCESS_CANCEL" };
 }
