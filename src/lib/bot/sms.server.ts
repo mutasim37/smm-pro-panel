@@ -52,7 +52,7 @@ type Premium = { id: number; name: string; description: string; price_month: num
 async function showPremium(ctx: SmsCtx) {
   const {data}=await supabaseAdmin.from("bot3_premium_products").select("*").eq("active",true).order("id");
   const list=(data??[]) as unknown as Premium[];
-  if(!list.length) return smsRespond(ctx,"<b>💼 Premium Numbers</b>\n"+DIVIDER+"No premium products right now.",[[{text:"⬅ Back",callback_data:"sms:srv"}],...home]);
+  if(!list.length) return smsRespond(ctx,"<b>💼 Premium Numbers</b>\n"+DIVIDER+"\nNo premium products right now.",[[{text:"⬅ Back",callback_data:"sms:srv"}],...home]);
   await smsRespond(ctx,["<b>💼 Premium Numbers</b>",DIVIDER,"Personal, dedicated subscription numbers.",...list.map(p=>`• <b>${escapeHtml(p.name)}</b> · ${money(Number(p.price_month))}/month`)].join("\n"),[...list.map(p=>[{text:`💼 ${p.name}`,callback_data:`sms:pp:${p.id}`}]),[{text:"⬅ Back",callback_data:"sms:srv"}],...home]);
 }
 async function showPremiumProduct(ctx: SmsCtx,id: number) {
@@ -234,7 +234,7 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
   if(base==="c") return showSmsCountries(ctx,a??"",Number(b??0),srv);
   if(base==="q") return quote(ctx,a??"",b??"",srv);
   if(action==="buy") return buy(ctx);
-  if(action==="stop") { const {data}=await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null).select("id"); if(data?.length) await smsRespond(ctx,"<b>✖ Stopping search…</b>\n"+DIVIDER+"Your money is being returned to your wallet.",[]).catch(()=>null); return; }
+  if(action==="stop") { const {data}=await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null).select("id"); if(data?.length) await smsRespond(ctx,"<b>✖ Stopping search…</b>\n"+DIVIDER+"\nYour money is being returned to your wallet.",[]).catch(()=>null); return; }
   if(action==="pm") return showPremium(ctx);
   if(action==="pp") return showPremiumProduct(ctx,Number(a));
   if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");
