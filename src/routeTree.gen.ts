@@ -19,6 +19,7 @@ import { Route as ApiPublicSmmDocsRouteImport } from './routes/api/public/smm/do
 import { Route as ApiPublicSmmV2RouteImport } from './routes/api/public/smm/v2'
 import { Route as ApiPublicSmsDocsRouteImport } from './routes/api/public/sms/docs'
 import { Route as ApiPublicSmsV2RouteImport } from './routes/api/public/sms/v2'
+import { Route as ApiPublicTelegramLegacyRouteImport } from './routes/api/public/telegram/legacy'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicTelegramWebhook2RouteImport } from './routes/api/public/telegram/webhook2'
 import { Route as ApiPublicTelegramWebhook3RouteImport } from './routes/api/public/telegram/webhook3'
@@ -75,6 +76,11 @@ const ApiPublicSmsV2Route = ApiPublicSmsV2RouteImport.update({
   path: '/api/public/sms/v2',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTelegramLegacyRoute = ApiPublicTelegramLegacyRouteImport.update({
+  id: '/api/public/telegram/legacy',
+  path: '/api/public/telegram/legacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
   '/api/public/sms/v2': typeof ApiPublicSmsV2Route
+  '/api/public/telegram/legacy': typeof ApiPublicTelegramLegacyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
   '/api/public/sms/v2': typeof ApiPublicSmsV2Route
+  '/api/public/telegram/legacy': typeof ApiPublicTelegramLegacyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
   '/api/public/sms/v2': typeof ApiPublicSmsV2Route
+  '/api/public/telegram/legacy': typeof ApiPublicTelegramLegacyRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/telegram/webhook2': typeof ApiPublicTelegramWebhook2Route
   '/api/public/telegram/webhook3': typeof ApiPublicTelegramWebhook3Route
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
     | '/api/public/sms/v2'
+    | '/api/public/telegram/legacy'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
     | '/api/public/sms/v2'
+    | '/api/public/telegram/legacy'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
     | '/api/public/sms/v2'
+    | '/api/public/telegram/legacy'
     | '/api/public/telegram/webhook'
     | '/api/public/telegram/webhook2'
     | '/api/public/telegram/webhook3'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   ApiPublicSmmV2Route: typeof ApiPublicSmmV2Route
   ApiPublicSmsDocsRoute: typeof ApiPublicSmsDocsRoute
   ApiPublicSmsV2Route: typeof ApiPublicSmsV2Route
+  ApiPublicTelegramLegacyRoute: typeof ApiPublicTelegramLegacyRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
   ApiPublicTelegramWebhook2Route: typeof ApiPublicTelegramWebhook2Route
   ApiPublicTelegramWebhook3Route: typeof ApiPublicTelegramWebhook3Route
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSmsV2RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/telegram/legacy': {
+      id: '/api/public/telegram/legacy'
+      path: '/api/public/telegram/legacy'
+      fullPath: '/api/public/telegram/legacy'
+      preLoaderRoute: typeof ApiPublicTelegramLegacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicSmmV2Route: ApiPublicSmmV2Route,
   ApiPublicSmsDocsRoute: ApiPublicSmsDocsRoute,
   ApiPublicSmsV2Route: ApiPublicSmsV2Route,
+  ApiPublicTelegramLegacyRoute: ApiPublicTelegramLegacyRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
   ApiPublicTelegramWebhook2Route: ApiPublicTelegramWebhook2Route,
   ApiPublicTelegramWebhook3Route: ApiPublicTelegramWebhook3Route,
