@@ -5,7 +5,7 @@ import { supabaseAdmin, getUser, setState, getState, clearState } from "./store.
 import { getSettings, setSetting } from "./settings.server";
 import { sendMessage, editMessage, tg, escapeHtml, ik, type InlineKeyboard } from "./telegram.server";
 import { money, usd, DIVIDER, currencyScope } from "./views.server";
-import { isCurrency } from "./config.server";
+import { isCurrency, supportUsername } from "./config.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
 import { rewardReferrer } from "./growth.server";
 import { smsPrice, parseSmsStatus, canRefundSms, SMS_CANCEL_DELAY_MS, SMS_WINDOW_MS } from "./sms-rules";
@@ -44,8 +44,31 @@ function split(action: string): { base: string; srv: Srv } {
 export async function showSmsServers(ctx: SmsCtx) {
   await smsRespond(ctx, ["<b>📲 Buy Number</b>", DIVIDER, "Choose a server:", "", "⚡ <b>Server 1</b> · fast delivery", "🌍 <b>Server 2</b> · huge stock, all countries"].join("\n"), [
     [{ text: "⚡ Server 1", callback_data: "sms:s1:0", style: "primary" } as InlineKeyboard[number][number], { text: "🌍 Server 2", callback_data: "sms:s2:0", style: "success" } as InlineKeyboard[number][number]],
+    [{ text: "💼 Premium Numbers · Subscription", callback_data: "sms:pm" }],
     ...home,
   ]);
+}
+type Premium = { id: number; name: string; description: string; price_month: number; price_year: number | null; active: boolean };
+async function showPremium(ctx: SmsCtx) {
+  const {data}=await supabaseAdmin.from("bot3_premium_products").select("*").eq("active",true).order("id");
+  const list=(data??[]) as unknown as Premium[];
+  if(!list.length) return smsRespond(ctx,"<b>💼 Premium Numbers</b>\n"+DIVIDER+"\nNo premium products right now.",[[{text:"⬅ Back",callback_data:"sms:srv"}],...home]);
+  await smsRespond(ctx,["<b>💼 Premium Numbers</b>",DIVIDER,"Personal, dedicated subscription numbers.",...list.map(p=>`• <b>${escapeHtml(p.name)}</b> · ${money(Number(p.price_month))}/month`)].join("\n"),[...list.map(p=>[{text:`💼 ${p.name}`,callback_data:`sms:pp:${p.id}`}]),[{text:"⬅ Back",callback_data:"sms:srv"}],...home]);
+}
+async function showPremiumProduct(ctx: SmsCtx,id: number) {
+  const {data}=await supabaseAdmin.from("bot3_premium_products").select("*").eq("id",id).eq("active",true).maybeSingle();
+  const p=data as unknown as Premium|null; if(!p) return showPremium(ctx);
+  const kb: InlineKeyboard=[[{text:`🗓 1 Month · ${money(Number(p.price_month))}`,callback_data:`sms:pb:${p.id}:month`}]];
+  if(p.price_year) kb.push([{text:`📅 1 Year · ${money(Number(p.price_year))}`,callback_data:`sms:pb:${p.id}:year`}]);
+  await smsRespond(ctx,[`<b>💼 ${escapeHtml(p.name)}</b>`,DIVIDER,escapeHtml(p.description),"",`🗓 1 Month · <b>${money(Number(p.price_month))}</b>`,...(p.price_year?[`📅 1 Year · <b>${money(Number(p.price_year))}</b>`]:[]),"","Paid from your wallet. After ordering, contact Support with your Order ID."].join("\n"),[...kb,[{text:"⬅ Back",callback_data:"sms:pm"}],...home]);
+}
+async function buyPremium(ctx: SmsCtx,id: number,plan: "month"|"year") {
+  const {data:oid}=await supabaseAdmin.rpc("bot3_buy_premium" as never,{_user:ctx.chatId,_product:id,_plan:plan} as never);
+  if(!oid) return smsRespond(ctx,"Wallet balance is insufficient, or this product is unavailable.",[[{text:"💳 Top Up",callback_data:"dep"}],[{text:"⬅ Back",callback_data:`sms:pp:${id}`}],...home]);
+  const {data:o}=await supabaseAdmin.from("bot3_premium_orders").select("*").eq("id",String(oid)).maybeSingle();
+  const sup=supportUsername();
+  await smsRespond(ctx,["<b>✅ Order Placed</b>",DIVIDER,`💼 ${escapeHtml(String(o?.product_name??""))} · ${plan==="year"?"1 Year":"1 Month"}`,`💰 ${money(Number(o?.charge??0))}`,`🆔 Order ID: <code>${oid}</code>`,"",`📩 Contact admin @${sup} with your Order ID to receive your number.`].join("\n"),[[{text:"💬 Contact Admin",url:`https://t.me/${sup}`}],...home]);
+  await notifyAdmins(`💼 <b>PREMIUM ORDER</b>\n${escapeHtml(String(o?.product_name??""))} · ${plan}\nUser <code>${ctx.chatId}</code> · ${usd(Number(o?.charge??0))}\nOrder <code>${oid}</code>`);
 }
 export async function smsRespond(ctx: SmsCtx, text: string, keyboard: InlineKeyboard = home) {
   return respond(ctx,text,keyboard);
@@ -128,13 +151,13 @@ async function buy(ctx: SmsCtx) {
     const started=Date.now(); let attempt=0; let response="";
     for(;;) {
       attempt++;
+      if(await stopped(id)) { response="NO_NUMBERS"; break; }
       response=(await apiFor(srv)("getNumber",{service,country,maxPrice:String(item.cost)})).trim();
       if(/^ACCESS_NUMBER:/.test(response) || response!=="NO_NUMBERS") break;
-      const {data:o}=await supabaseAdmin.from("bot3_sms_orders").select("provider_response").eq("id",id).maybeSingle();
-      if(o?.provider_response==="STOP" || Date.now()-started>FIND_MS) break;
+      if(await stopped(id) || Date.now()-started>FIND_MS) break;
       const pct=Math.min(95,30+Math.round((Date.now()-started)/FIND_MS*65));
       await smsRespond(ctx,progress(pct,`🔎 Finding number${".".repeat(1+attempt%3)} · attempt ${attempt}`),stopKb).catch(()=>null);
-      await new Promise(r=>setTimeout(r,4000));
+      for(let w=0;w<4 && !(await stopped(id));w++) await new Promise(r=>setTimeout(r,1000));
     }
     const match=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
     if(!match?.[1] || !match[2]) {
@@ -153,6 +176,10 @@ async function buy(ctx: SmsCtx) {
     await notifyAdmins(`⚠️ SMS purchase result uncertain · <code>${id}</code>. Reconcile with supplier before any refund.`);
     await smsRespond(ctx,"⏳ Connection interrupted. Your payment is safe and will not be charged twice — Support will confirm shortly.");
   }
+}
+async function stopped(id: string) {
+  const {data:o}=await supabaseAdmin.from("bot3_sms_orders").select("provider_response").eq("id",id).maybeSingle();
+  return o?.provider_response==="STOP";
 }
 async function loadOrder(user: number,id: string) {
   const {data}=await supabaseAdmin.from("bot3_sms_orders").select("*").eq("id",id).eq("telegram_id",user).maybeSingle();
@@ -207,20 +234,30 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
   if(base==="c") return showSmsCountries(ctx,a??"",Number(b??0),srv);
   if(base==="q") return quote(ctx,a??"",b??"",srv);
   if(action==="buy") return buy(ctx);
-  if(action==="stop") { await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null); return; }
+  if(action==="stop") { const {data}=await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null).select("id"); if(data?.length) await smsRespond(ctx,"<b>✖ Stopping search…</b>\n"+DIVIDER+"\nYour money is being returned to your wallet.",[]).catch(()=>null); return; }
+  if(action==="pm") return showPremium(ctx);
+  if(action==="pp") return showPremiumProduct(ctx,Number(a));
+  if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");
   if(action==="my") return showSmsOrders(ctx,Number(a??0));
   if(action==="o" || action==="x") return showSmsOrder(ctx,a??"",action==="x");
   if(base==="search") {await setState(ctx.chatId,"sms_search",{srv});return smsRespond(ctx,"Send a service name or code, such as Telegram or tg.");}
 }
 export async function handleSmsStep(chatId: number,text: string,step: string|null) {
   if(step==="sms_search" || step==="sms_search_results") {const st=await getState(chatId);const srv: Srv=st.data["srv"]==="1"?"1":"2";await clearState(chatId);await showSmsServices({chatId},0,text,srv);return true;}
+  if(step==="await_admin_prem" && isAdmin(chatId)) {const [name,m,y,...d]=text.split("|").map(x=>x.trim());const pm=Number(m),py=y?Number(y):null;
+    if(!name||!Number.isFinite(pm)||pm<=0||(py!==null&&(!Number.isFinite(py)||py<=0))){await sendMessage(chatId,"Format: Name | monthly USD | yearly USD (optional) | description\nExample: imo Number | 5 | 50 | Personal spam-free number");return true;}
+    await supabaseAdmin.from("bot3_premium_products").insert({name,price_month:pm,price_year:py,description:d.join(" | ")});await clearState(chatId);await sendMessage(chatId,`✅ Added: ${escapeHtml(name)}`);return true;}
   if(step==="await_admin_smsg" && isAdmin(chatId)) {const n=Number(text);if(!Number.isFinite(n)||n<1||n>1000){await sendMessage(chatId,"Send a multiplier between 1 and 1000, e.g. 2.1.");return true;}await setSetting("sms_g_multiplier",n);await clearState(chatId);await sendMessage(chatId,`✅ Grizzly (Server 1) multiplier saved: ${n}×`);return true;}
   if(step==="await_admin_sms" && isAdmin(chatId)) {const n=Number(text);if(!Number.isFinite(n)||n<1||n>1000){await sendMessage(chatId,"Send a multiplier between 1 and 1000, e.g. 3 or 1.5.");return true;}await setSetting("sms_multiplier",n);await clearState(chatId);await sendMessage(chatId,`✅ 5SIM (Server 2) multiplier saved: ${n}×`);return true;}
   return false;
 }
 export async function adminSmsView(action: string,page=0): Promise<{text:string;keyboard:InlineKeyboard}> {
-  const keyboard: InlineKeyboard=[[{text:"✏ Grizzly ×",callback_data:"a:psmsg"},{text:"✏ 5SIM ×",callback_data:"a:psms"}],[{text:"⬅ Admin Panel",callback_data:"a:panel"}]];
+  const keyboard: InlineKeyboard=[[{text:"✏ Grizzly ×",callback_data:"a:psmsg"},{text:"✏ 5SIM ×",callback_data:"a:psms"}],[{text:"💼 Premium Products",callback_data:"a:prem"}],[{text:"⬅ Admin Panel",callback_data:"a:panel"}]];
   const bal=async (api: typeof gz)=>{try{const n=Number((await api("getBalance")).replace("ACCESS_BALANCE:",""));return Number.isFinite(n)?usd(n):"Unavailable";}catch{return "Unavailable";}};
+  if(action==="prem") {const {data}=await supabaseAdmin.from("bot3_premium_products").select("*").order("id");const list=(data??[]) as unknown as Premium[];
+    return {text:["<b>💼 Premium Products</b>",DIVIDER,...list.map(p=>`${p.active?"🟢":"⚪"} #${p.id} ${escapeHtml(p.name)} · ${usd(Number(p.price_month))}/mo${p.price_year?` · ${usd(Number(p.price_year))}/yr`:""}`),"","Tap a product to show/hide it."].join("\n"),keyboard:[...list.map(p=>[{text:`${p.active?"Hide":"Show"} · ${p.name}`,callback_data:`a:premt${p.id}`},{text:"🗑",callback_data:`a:premd${p.id}`}]),[{text:"➕ Add Product",callback_data:"a:premadd"}],[{text:"⬅ Admin Panel",callback_data:"a:panel"}]]};}
+  if(action.startsWith("premt")) {const id=Number(action.slice(5));const {data}=await supabaseAdmin.from("bot3_premium_products").select("active").eq("id",id).maybeSingle();if(data) await supabaseAdmin.from("bot3_premium_products").update({active:!data.active}).eq("id",id);return adminSmsView("prem");}
+  if(action.startsWith("premd")) {await supabaseAdmin.from("bot3_premium_products").delete().eq("id",Number(action.slice(5)));return adminSmsView("prem");}
   if(action==="pricing") {const st=await getSettings();return {text:`<b>SMS Price Multipliers</b>\n${DIVIDER}\n⚡ Server 1 · Grizzly SMS · <b>${st.sms_g_multiplier}×</b>\n🌍 Server 2 · 5SIM · <b>${st.sms_multiplier}×</b>\nExample Grizzly: $1.00 → $${st.sms_g_multiplier.toFixed(2)}`,keyboard};}
   if(action==="provider") {const [g,f]=await Promise.all([bal(gz),bal(fivesim)]);return {text:`<b>Server Balances</b>\n${DIVIDER}\n⚡ Server 1 · Grizzly SMS · <b>${g}</b>\n🌍 Server 2 · 5SIM · <b>${f}</b>`,keyboard};}
   if(action==="refresh") {const [g,f]=await Promise.allSettled([gzCatalog(true),fivesimCatalog(true)]);const n=(r: PromiseSettledResult<SmsCatalog>)=>r.status==="fulfilled"?`${r.value.services.length} services`:"failed";return {text:`✅ Catalog refreshed\n⚡ Grizzly · ${n(g)}\n🌍 5SIM · ${n(f)}`,keyboard};}

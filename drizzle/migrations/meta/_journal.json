@@ -113,6 +113,13 @@
       "when": 1791489517559,
       "tag": "0015_check_atomic_api_debit_row_count",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791556946137,
+      "tag": "0016_sms_premium_products",
+      "breakpoints": true
     }
   ]
 }
