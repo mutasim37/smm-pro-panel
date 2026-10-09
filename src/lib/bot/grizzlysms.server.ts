@@ -17,8 +17,17 @@ export async function gzCatalog(force = false): Promise<SmsCatalog> {
   if (!force && data && Date.now() - Date.parse(data.updated_at) < 180000) return data.payload as unknown as SmsCatalog;
   try {
     const [countries, services, prices] = await Promise.all([gz("getCountries"), gz("getServicesList", { lang: "en" }), gz("getPrices")]);
-    const list = JSON.parse(services);
-    const value: SmsCatalog = { countries: JSON.parse(countries), services: list.services ?? list, prices: JSON.parse(prices) };
+    const list = JSON.parse(services), rawC = JSON.parse(countries), rawP = JSON.parse(prices);
+    // Keep only in-stock entries and the fields the bot uses — the raw feed is several MB.
+    const p: SmsCatalog["prices"] = {}; const used = new Set<string>(); const c: SmsCatalog["countries"] = {};
+    for (const [country, items] of Object.entries(rawP ?? {}) as [string, Record<string, { cost: number; count: number }>][]) {
+      for (const [svc, v] of Object.entries(items ?? {})) {
+        const n = Number(v?.count), cost = Number(v?.cost);
+        if (n > 0 && cost > 0) { (p[country] ??= {})[svc] = { cost, count: n }; used.add(svc); }
+      }
+      if (p[country]) c[country] = { id: Number(rawC?.[country]?.id ?? country), eng: String(rawC?.[country]?.eng ?? country) };
+    }
+    const value: SmsCatalog = { countries: c, services: ((list.services ?? list) as { code: string; name: string }[]).filter(x => used.has(x.code)).map(x => ({ code: x.code, name: x.name })), prices: p };
     if (!Array.isArray(value.services) || !value.prices || !value.countries) throw new Error("bad");
     await supabaseAdmin.from("bot3_service_cache").upsert({ key: "catalog_gz", payload: value as never, updated_at: new Date().toISOString() });
     return value;

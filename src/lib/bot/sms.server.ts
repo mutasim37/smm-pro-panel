@@ -16,7 +16,22 @@ const home: InlineKeyboard = [[{ text: "🏠 Home", callback_data: "home" }]];
 /** Server 1 = Grizzly SMS, Server 2 = 5SIM. Grizzly orders store provider_id as "g:<id>". */
 export type Srv = "1" | "2";
 const SRV_NAME: Record<Srv, string> = { "1": "Server 1", "2": "Server 2" };
-const catalogFor = (s: Srv, force = false): Promise<SmsCatalog> => s === "1" ? gzCatalog(force) : fivesimCatalog(force);
+// Per-isolate memory cache: instant repeat clicks; stale copies are served while one refresh runs.
+const mem = new Map<Srv, { v: SmsCatalog; at: number }>(); const inflight = new Map<Srv, Promise<SmsCatalog>>();
+function loadCatalog(s: Srv, force: boolean) {
+  const run = inflight.get(s) ?? (s === "1" ? gzCatalog(force) : fivesimCatalog(force)).then(v => { mem.set(s, { v, at: Date.now() }); return v; }).finally(() => inflight.delete(s));
+  inflight.set(s, run); return run;
+}
+const catalogFor = async (s: Srv, force = false): Promise<SmsCatalog> => {
+  const m = mem.get(s);
+  if (!force && m) { if (Date.now() - m.at > 180000) void loadCatalog(s, false).catch(() => null); return m.v; }
+  return loadCatalog(s, force);
+};
+const catalogReady = (s: Srv) => mem.has(s);
+async function loadingScreen(ctx: SmsCtx, srv: Srv) {
+  await smsRespond(ctx, [`<b>⏳ ${SRV_NAME[srv]} · Loading products…</b>`, DIVIDER, "<code>[██████░░░░] 60%</code>", "📡 Connecting to server…", "Please wait a moment."].join("\n"), []).catch(() => null);
+  if (!ctx.messageId || ctx.fromPhoto) { delete ctx.messageId; ctx.fromPhoto = false; }
+}
 const apiFor = (s: Srv) => s === "1" ? gz : fivesim;
 async function multFor(s: Srv) { const st = await getSettings(); return s === "1" ? st.sms_g_multiplier : st.sms_multiplier; }
 const srvOf = (providerId: string | null): Srv => providerId?.startsWith("g:") ? "1" : "2";
@@ -47,6 +62,7 @@ const SMS_TOP = ["telegram", "whatsapp", "google", "facebook", "instagram", "tik
 export async function showSmsServices(ctx: SmsCtx, page = 0, search = "", srv: Srv = "2") {
   try {
     if(search) await setState(ctx.chatId,"sms_search_results",{search,srv});
+    if(!catalogReady(srv)) await loadingScreen(ctx,srv);
     const cat = await catalogFor(srv);
     const markup = await multFor(srv);
     const minCost = new Map<string, number>(); const stock = new Map<string, number>();
@@ -70,6 +86,7 @@ export async function showSmsServices(ctx: SmsCtx, page = 0, search = "", srv: S
   } catch (e) { await smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:`sms:s${srv}:0`}],[{text:"🔀 Switch Server",callback_data:"sms:srv"}],...home]); }
 }
 export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0, srv: Srv = "2") {
+  if(!catalogReady(srv)) await loadingScreen(ctx,srv);
   let cat: SmsCatalog; try { cat = await catalogFor(srv); } catch (e) { return smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:`sms:c${srv}:${service}:0`}],...home]); }
   const markup = await multFor(srv);
   const list = Object.entries(cat.prices).filter(([,p])=>Number(p[service]?.count)>0).sort((a,b)=>Number(a[1][service]?.cost)-Number(b[1][service]?.cost));
