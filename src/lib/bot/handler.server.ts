@@ -27,6 +27,7 @@ import {
 import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
 import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
+import { binancePayId, findBinancePayment, looksLikeBinanceId } from "./binance.server";
 import { currentBot } from "./scope.server";
 import { adminCoupons, checkCoupon, COUPON_HELP, couponCard, createCoupon, disableCoupon, redeemCoupon, releaseCoupon } from "./coupons.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
@@ -706,8 +707,64 @@ async function showFunds(ctx: Ctx) {
   const address = depositAddress();
   await respond(ctx, fundsText(Number(user?.balance ?? 0), address), [
     [{ text: "💎 USDT (BEP20)", callback_data: "dep:new" }, { text: "📱 bKash (BDT)", callback_data: "dep:bk" }],
+    ...(binancePayId() ? [[{ text: "🟡 Binance Pay", callback_data: "dep:bn" }]] : []),
     [{ text: "🏠 Home", callback_data: "home" }],
   ]);
+}
+
+/* ------------------------------- Binance Pay ------------------------------ */
+
+async function showBinance(ctx: Ctx, pendingOrder?: any) {
+  await setState(ctx.chatId, "await_bn_id", pendingOrder ? { pendingOrder } : {});
+  await respond(
+    ctx,
+    [
+      "<b>🟡 BINANCE PAY</b>",
+      DIVIDER,
+      "📲 <b>Send USDT to this Binance Pay ID:</b>",
+      `<code>${binancePayId()}</code>  <i>(tap to copy)</i>`,
+      DIVIDER,
+      "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send any amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID</b> and send it here.</blockquote>",
+      "Each Order ID can be used only once.",
+    ].join("\n"),
+    [[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]],
+  );
+}
+
+async function verifyBinance(chatId: number, ref: string, data: Record<string, any>) {
+  await sendChatAction(chatId);
+  const result = await withChecking(chatId, "🔍 VERIFYING PAYMENT…", () => findBinancePayment(ref));
+  const retry = ik([[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]]);
+  if (!result.ok) {
+    const reasons: Record<string, string> = {
+      not_found: "❌ <b>Payment not found.</b> Check the Order ID, or wait a minute and send it again.",
+      not_incoming: "❌ <b>Not a valid USDT payment</b> to our Pay ID.",
+      too_old: "❌ <b>Transaction expired.</b> This payment is older than 72 hours.",
+      unavailable: "⚠️ <b>Verification is temporarily unavailable.</b> Please try again shortly.",
+    };
+    await sendMessage(chatId, `${reasons[result.reason]}\n${DIVIDER}\nSend the Order ID again or contact @${supportUsername()}.`, { reply_markup: retry });
+    return;
+  }
+  // UNIQUE tx_hash: the insert itself claims the payment once across all bots.
+  const { error } = await supabaseAdmin.from("bot_deposits").insert({
+    telegram_id: chatId, amount_requested: result.amount, amount_credited: result.amount,
+    tx_hash: `binance:${result.id}`, status: "confirmed", note: `binance pay ${result.amount} USDT; bot ${currentBot()}`,
+    confirmed_at: new Date().toISOString(),
+  });
+  if (error) {
+    await sendMessage(chatId, "🚫 <b>Transaction already used.</b> This Order ID has already been credited.", { reply_markup: retry });
+    return;
+  }
+  const balance = await adjustBalance(chatId, result.amount);
+  await clearState(chatId);
+  await sendMessage(chatId, [
+    "<b>✅ BINANCE PAYMENT CONFIRMED</b>", DIVIDER,
+    `🟡 <b>Received</b> · <code>${result.amount.toFixed(2)} USDT</code>`,
+    `💰 <b>New balance</b> · <code>${money(balance)}</code>`,
+    `🧾 <code>${escapeHtml(result.id)}</code>`, DIVIDER, "Thank you — your funds are ready to use.",
+  ].join("\n"), { message_effect_id: EFFECTS.party });
+  await notifyAdmins(`<b>💰 NEW BINANCE PAY DEPOSIT</b>\n${DIVIDER}\n👤 <code>${chatId}</code> · ${BRAND.name}\n🟡 <code>${result.amount} USDT</code>\n🧾 <code>${escapeHtml(result.id)}</code>`, EFFECTS.fire);
+  if (data["pendingOrder"]) await completePending(chatId, data["pendingOrder"]);
 }
 
 /* ---------------------------------- bKash --------------------------------- */
@@ -1207,6 +1264,15 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       return true;
     }
     await showBkashInvoice(chatId, Math.round(amount * 100) / 100);
+    return true;
+  }
+
+  if (state.step === "await_bn_id") {
+    if (!looksLikeBinanceId(text)) {
+      await sendMessage(chatId, "⚠️ That is not a valid Binance Order ID. Copy it from Binance → Pay → History.");
+      return true;
+    }
+    await verifyBinance(chatId, text.trim(), state.data);
     return true;
   }
 
@@ -1803,6 +1869,7 @@ async function handleCallback(query: any) {
         if (a === "new") return askDepositAmount(ctx);
         if (a === "chk") return askHash(chatId);
         if (a === "bk") return askBkashAmount(ctx);
+        if (a === "bn") return showBinance(ctx);
         if (a === "bkt") return askBkashTrx(ctx);
         return showFunds(ctx);
       case "a": {
