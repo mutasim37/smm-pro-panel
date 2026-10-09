@@ -61,6 +61,9 @@ export async function grizzly(action: string, params: Record<string, string> = {
     if (r.ok && o?.status === "CANCELED" && !(Array.isArray(o.sms) && o.sms.length)) return "ACCESS_CANCEL";
     // Already canceled/timed out at supplier with no SMS also counts as a confirmed cancel.
     const c = json((await call(`/user/check/${id}`)).text);
+    const sms = Array.isArray(c?.sms) ? c.sms : [];
+    const code = sms.length ? String(sms[sms.length - 1]?.code ?? sms[sms.length - 1]?.text ?? "") : "";
+    if (code) return `STATUS_OK:${code}`;
     if (c && (c.status === "CANCELED" || c.status === "TIMEOUT") && !(Array.isArray(c.sms) && c.sms.length)) return "ACCESS_CANCEL";
     return r.text.slice(0, 120) || "CANCEL_FAILED";
   }

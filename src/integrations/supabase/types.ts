@@ -1032,8 +1032,10 @@ export type Database = {
           poll_locked_until: string | null
           provider_id: string | null
           provider_response: string | null
+          purchase_in_flight: boolean
           refunded: number
           request_key: string
+          search_tracked: boolean
           service: string
           service_name: string
           status: string
@@ -1056,8 +1058,10 @@ export type Database = {
           poll_locked_until?: string | null
           provider_id?: string | null
           provider_response?: string | null
+          purchase_in_flight?: boolean
           refunded?: number
           request_key: string
+          search_tracked?: boolean
           service: string
           service_name: string
           status?: string
@@ -1080,8 +1084,10 @@ export type Database = {
           poll_locked_until?: string | null
           provider_id?: string | null
           provider_response?: string | null
+          purchase_in_flight?: boolean
           refunded?: number
           request_key?: string
+          search_tracked?: boolean
           service?: string
           service_name?: string
           status?: string
@@ -1264,6 +1270,10 @@ export type Database = {
           _service_name: string
           _user: number
         }
+        Returns: string
+      }
+      bot3_sms_search_step: {
+        Args: { _action: string; _id: string }
         Returns: string
       }
     }
