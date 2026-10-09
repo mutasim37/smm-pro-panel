@@ -1,8 +1,6 @@
 // Telegram Mini App support for Frrr SMS: initData verification + catalog/selection.
 import { runAsBot } from "./scope.server";
 import { bot3TokenValue } from "./telegram.server";
-import { smsCatalog } from "./grizzly.server";
-import { getSettings } from "./settings.server";
 import { smsPrice } from "./sms-rules";
 import { getUser } from "./store.server";
 import { money, currencyScope } from "./views.server";
@@ -29,11 +27,12 @@ async function withUser<T>(id: number, fn: () => Promise<T>) {
   const user = await getUser(id); const code = isCurrency(user?.currency) ? user.currency : "USD";
   return currencyScope.run({ code }, fn);
 }
-export function miniCatalog(initData: string) {
+export function miniCatalog(initData: string, srv: "1" | "2" = "2") {
   return runAsBot("sms", async () => {
     const id = await verifyInitData(initData);
     return withUser(id, async () => {
-      const cat = await smsCatalog(); const m = (await getSettings()).sms_multiplier;
+      const { catalogFor, multFor } = await import("./sms.server");
+      const cat = await catalogFor(srv); const m = await multFor(srv);
       const services = new Map<string, { code: string; name: string; min: number; countries: { code: string; name: string; price: string; usd: number; stock: number }[] }>();
       for (const [country, items] of Object.entries(cat.prices)) for (const [code, it] of Object.entries(items)) {
         if (!(Number(it.count) > 0)) continue;
@@ -47,11 +46,11 @@ export function miniCatalog(initData: string) {
     });
   });
 }
-export function miniSelect(initData: string, service: string, country: string) {
+export function miniSelect(initData: string, service: string, country: string, srv: "1" | "2" = "2") {
   return runAsBot("sms", async () => {
     const id = await verifyInitData(initData);
     const { quote } = await import("./sms.server");
-    await withUser(id, () => quote({ chatId: id }, service, country));
+    await withUser(id, () => quote({ chatId: id }, service, country, srv));
     return { ok: true };
   });
 }
