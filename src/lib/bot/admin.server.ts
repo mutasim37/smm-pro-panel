@@ -14,13 +14,16 @@ export function isAdmin(chatId: number): boolean {
   return adminChatIds().includes(chatId);
 }
 
+let accessAt = 0;
 export async function loadBotAccess() {
+  if (Date.now() - accessAt < 30000) return;
   const [{ data: roles, error }, { data: support }] = await Promise.all([
     supabaseAdmin.from("bot_admin_roles").select("telegram_id").eq("role", "admin"),
     supabaseAdmin.from("bot_secrets").select("value").eq("name", "support_username").maybeSingle(),
   ]);
   if (error) throw new Error("Unable to verify administrator access.");
   setBotAccess((roles ?? []).map((r) => Number(r.telegram_id)), support?.value ?? "Frreohi");
+  accessAt = Date.now();
 }
 
 export function adminKeyboard(): InlineKeyboard {
