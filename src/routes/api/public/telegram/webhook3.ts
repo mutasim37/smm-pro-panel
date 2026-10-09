@@ -21,7 +21,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook3")({
     try {
       const { runAsBot } = await import("@/lib/bot/scope.server");
       const { handleUpdate } = await import("@/lib/bot/handler.server");
-      await runAsBot("sms",()=>handleUpdate(parsed.data));
+      // Number search can take ~50s; reply to Telegram at once so the Stop button is delivered meanwhile.
+      const cb = (parsed.data.callback_query as { data?: unknown } | undefined)?.data;
+      if (cb === "sms:buy") { const { background } = await import("@/lib/wait-until"); await background(runAsBot("sms",()=>handleUpdate(parsed.data))); }
+      else await runAsBot("sms",()=>handleUpdate(parsed.data));
     } catch { console.error("[sms] update failed"); }
     return Response.json({ok:true});
   } } },
