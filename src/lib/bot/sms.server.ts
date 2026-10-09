@@ -101,7 +101,7 @@ async function buy(ctx: SmsCtx) {
     const {data:issued}=await supabaseAdmin.from("bot3_sms_orders").select("provider_id").eq("id",id).maybeSingle();
     if(!issued?.provider_id) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id);
     await notifyAdmins(`⚠️ SMS purchase result uncertain · <code>${id}</code>. Reconcile with supplier before any refund.`);
-    await smsRespond(ctx,"Supplier response was interrupted. Your payment is reserved for review—no repeat charge. Contact Support.");
+    await smsRespond(ctx,"⏳ Connection interrupted. Your payment is safe and will not be charged twice — Support will confirm shortly.");
   }
 }
 async function loadOrder(user: number,id: string) {
