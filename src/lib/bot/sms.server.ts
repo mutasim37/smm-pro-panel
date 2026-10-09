@@ -22,18 +22,29 @@ function pages(prefix: string, page: number, total: number): InlineKeyboard {
   if ((page + 1) * 10 < total) row.push({ text: "▶", callback_data: `${prefix}:${page + 1}` });
   return [row, ...home];
 }
+const SMS_ICONS: Record<string, string> = { tg: "✈️", wa: "💬", go: "🔍", fb: "📘", ig: "📸", tw: "🐦", ds: "🎮", mm: "🪟", tk: "🎵", vi: "📞", wb: "💚", ub: "🚕", am: "📦", nf: "🎬", oi: "💘", lf: "🧡", ot: "🌐" };
+const SMS_TOP = ["tg", "wa", "go", "fb", "ig", "tw", "tk", "ds", "mm", "vi", "wb", "am"];
 export async function showSmsServices(ctx: SmsCtx, page = 0, search = "") {
   try {
     if(search) await setState(ctx.chatId,"sms_search_results",{search});
     const cat = await smsCatalog();
-    const available = new Set(Object.values(cat.prices).flatMap(p => Object.entries(p).filter(([,v]) => Number(v.count)>0).map(([k])=>k)));
-    const preferred = ["tg", "wa", "go", "fb", "ig"];
-    const list = cat.services.filter(s => available.has(s.code) && (!search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code===search)).sort((a,b) => (preferred.indexOf(a.code)<0?99:preferred.indexOf(a.code))-(preferred.indexOf(b.code)<0?99:preferred.indexOf(b.code)) || a.name.localeCompare(b.name));
+    const markup = (await getSettings()).sms_markup_pct;
+    const minCost = new Map<string, number>(); const stock = new Map<string, number>();
+    for (const p of Object.values(cat.prices)) for (const [k, v] of Object.entries(p)) {
+      if (Number(v.count) <= 0) continue;
+      stock.set(k, (stock.get(k) ?? 0) + Number(v.count));
+      const c = Number(v.cost); if (Number.isFinite(c) && c > 0 && c < (minCost.get(k) ?? Infinity)) minCost.set(k, c);
+    }
+    const rank = (c: string) => { const i = SMS_TOP.indexOf(c); return i < 0 ? 99 : i; };
+    const list = cat.services.filter(s => minCost.has(s.code) && (!search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code===search.toLowerCase())).sort((a,b) => rank(a.code)-rank(b.code) || (stock.get(b.code) ?? 0)-(stock.get(a.code) ?? 0) || a.name.localeCompare(b.name));
+    const label = (s: { code: string; name: string }) => `${SMS_ICONS[s.code] ?? "📱"} ${s.name.slice(0, 18)} · ${money(smsPrice(minCost.get(s.code)!, markup))}+`;
     const keyboard: InlineKeyboard = [];
     const chunk = list.slice(page*10,page*10+10);
-    for(let i=0;i<chunk.length;i+=2) keyboard.push(chunk.slice(i,i+2).map(s=>({ text: s.name.slice(0,25), callback_data:`sms:c:${s.code}:0` })));
-    keyboard.push([{ text: "🔎 Search Service", callback_data: "sms:search" }]);
-    await smsRespond(ctx, `<b>📲 Choose a service</b>\n${DIVIDER}\nLive stock · ${list.length} services`, [...keyboard,...pages(search?"sms:results":"sms:s",page,list.length)]);
+    for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c:${s.code}:0` }]);
+    keyboard.push([{ text: "🔎 Search Any Service", callback_data: "sms:search", style: "primary" } as InlineKeyboard[number][number]]);
+    const head = search ? `<b>🔎 Results for “${escapeHtml(search)}”</b>` : page === 0 ? "<b>⭐ Top Services</b>" : "<b>📲 All Services</b>";
+    const text = [head, DIVIDER, `🟢 Live stock · <b>${list.length}</b> services`, "💡 Price shown is the cheapest country.", list.length ? "" : "No service found — try another name."].join("\n");
+    await smsRespond(ctx, text, [...keyboard,...pages(search?"sms:results":"sms:s",page,list.length)]);
   } catch (e) { await smsRespond(ctx, escapeHtml(e instanceof Error ? e.message : "Stock unavailable"), [[{text:"🔄 Retry",callback_data:"sms:s:0"}],...home]); }
 }
 export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0) {
@@ -41,8 +52,9 @@ export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0) {
   const markup = (await getSettings()).sms_markup_pct;
   const list = Object.entries(cat.prices).filter(([,p])=>Number(p[service]?.count)>0).sort((a,b)=>Number(a[1][service]?.cost)-Number(b[1][service]?.cost));
   const name = cat.services.find(s=>s.code===service)?.name ?? service;
-  await smsRespond(ctx, `<b>${escapeHtml(name)} · Countries</b>\n${DIVIDER}\nPrices include our service fee.`, [
-    ...list.slice(page*10,page*10+10).map(([country,p])=>[{text:`${cat.countries[country]?.eng ?? country} · ${money(smsPrice(Number(p[service]?.cost),markup))}`,callback_data:`sms:q:${service}:${country}`}]),
+  const stockTag = (n: number) => n >= 100 ? "🟢" : n >= 10 ? "🟡" : "🟠";
+  await smsRespond(ctx, [`<b>${SMS_ICONS[service] ?? "📱"} ${escapeHtml(name)}</b>`, DIVIDER, `🌍 <b>${list.length}</b> countries in stock · cheapest first`, "🟢 high · 🟡 medium · 🟠 low stock", "Prices include our service fee."].join("\n"), [
+    ...list.slice(page*10,page*10+10).map(([country,p])=>[{text:`${stockTag(Number(p[service]?.count))} ${(cat.countries[country]?.eng ?? country).slice(0,22)} · ${money(smsPrice(Number(p[service]?.cost),markup))}`,callback_data:`sms:q:${service}:${country}`}]),
     ...pages(`sms:c:${service}`,page,list.length), [{text:"⬅ Services",callback_data:"sms:s:0"}]
   ]);
 }
