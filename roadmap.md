@@ -1,7 +1,8 @@
 - [x] Separate SMM/TG/SMS reseller APIs and Markdown docs, per-bot keys and wallet-protected actions.
 - [x] Publish latest app, register all three Telegram webhooks and verify live API docs/authentication without buying stock. SMM wallet checked with existing key.
 # Tasks
-- [ ] Fix SMS search-stop/cancellation refunds and improve OTP messages; verify safely without spending supplier funds.
+- [x] Fix SMS search-stop/cancellation refunds and improve OTP messages; 16 safe tests, no supplier funds spent.
+- [ ] Reconcile four pre-existing uncertain SMS purchases: supplier issuance evidence required before refunding; STOP alone is not proof of no issued number.
 - [x] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, active-only OTP polling and provider-confirmed refunds.
 - [x] Add white SMS branding, compact actions, independent admin tools and secure webhook; button colors depend on Telegram support.
 - [x] Verify SMS live catalog and 22 safety tests without buying a number; set Telegram English About and description.
