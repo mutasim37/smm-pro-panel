@@ -29,11 +29,11 @@ mock.module("./store.server", () => ({
     rpc: async (name: string, p: Record<string, string>) => {
       if (name === "bot3_claim_sms_poll") return { data: lock };
       if (name === "bot3_finish_sms") {
-        if (p._kind === "refund" && !order.otp && !order.refunded) {
-          credits++; order.refunded = order.charge; order.status = "refunded";
+        if (p["_kind"] === "refund" && !order["otp"] && !order["refunded"]) {
+          credits++; order["refunded"] = order["charge"]; order["status"] = "refunded";
           return { data: true };
         }
-        if (p._kind === "otp" && !order.refunded) { order.otp = p._value; order.status = "received"; return { data: true }; }
+        if (p["_kind"] === "otp" && !order["refunded"]) { order["otp"] = p["_value"]; order["status"] = "received"; return { data: true }; }
       }
       return { data: false };
     },
@@ -49,25 +49,25 @@ afterEach(() => mock.restore());
 test("cancel intent survives a busy polling lock and refunds on next automatic check", async () => {
   reset(); lock = false;
   await syncSmsOrder(order as any, true);
-  expect(order.status).toBe("cancel_pending");
+  expect(order["status"]).toBe("cancel_pending");
   expect(providerCalls).toEqual([]);
   lock = true;
   await syncSmsOrder(order as any);
   expect(reads).toBeGreaterThan(0);
-  expect(order.refunded).toBe(0.5);
+  expect(order["refunded"]).toBe(0.5);
   expect(credits).toBe(1);
   await syncSmsOrder(order as any);
   expect(credits).toBe(1);
 });
 test("unknown status does not discard a saved cancellation request", async () => {
-  reset("refund_review"); replies.getStatus = "UNKNOWN";
+  reset("refund_review"); replies["getStatus"] = "UNKNOWN";
   await syncSmsOrder(order as any);
   expect(providerCalls).toEqual(["getStatus", "setStatus"]);
-  expect(order.refunded).toBe(0.5);
+  expect(order["refunded"]).toBe(0.5);
 });
 test("OTP arriving during cancellation is saved instead of refunded", async () => {
-  reset("cancel_pending"); replies.setStatus = "STATUS_OK:012345";
+  reset("cancel_pending"); replies["setStatus"] = "STATUS_OK:012345";
   await syncSmsOrder(order as any);
-  expect(order.otp).toBe("012345");
+  expect(order["otp"]).toBe("012345");
   expect(credits).toBe(0);
 });
