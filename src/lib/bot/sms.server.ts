@@ -8,7 +8,7 @@ import { money, usd, DIVIDER, currencyScope } from "./views.server";
 import { isCurrency, supportUsername } from "./config.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
 import { rewardReferrer } from "./growth.server";
-import { smsPrice, parseSmsStatus, canRefundSms, SMS_CANCEL_DELAY_MS, SMS_WINDOW_MS } from "./sms-rules";
+import { smsPrice, parseSmsStatus, canRefundSms, shouldCancelSms, SMS_RETRY_STATUSES, SMS_CANCEL_DELAY_MS, SMS_WINDOW_MS } from "./sms-rules";
 
 export type SmsCtx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 type SmsOrder = { id: string; telegram_id: number; service_name: string; country_name: string; service: string; country: string; charge: number; provider_id: string | null; phone: string | null; otp: string | null; status: string; created_at: string; expires_at: string; notified_at: string | null; refunded: number };
@@ -98,7 +98,7 @@ export async function showSmsServices(ctx: SmsCtx, page = 0, search = "", srv: S
     const nameOf = (c: string) => (cat.services.find(s=>s.code===c)?.name ?? c).toLowerCase();
     const rank = (c: string) => { const n = nameOf(c); const i = SMS_TOP.findIndex(t => n === t || n.startsWith(t)); return i < 0 ? 99 : i; };
     const list = cat.services.filter(s => minCost.has(s.code) && (!search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code===search.toLowerCase())).sort((a,b) => rank(a.code)-rank(b.code) || (stock.get(b.code) ?? 0)-(stock.get(a.code) ?? 0) || a.name.localeCompare(b.name));
-    const label = (s: { code: string; name: string }) => `${iconFor(s.name)} ${s.name.slice(0, 18)} · ${money(smsPrice(minCost.get(s.code)!, markup))}+`;
+    const label = (s: { code: string; name: string }) => `${iconFor(s.name)} ${s.name.slice(0, 18)} · ${money(smsPrice(minCost.get(s.code) ?? 0, markup))}+`;
     const keyboard: InlineKeyboard = [];
     const chunk = list.slice(page*10,page*10+10);
     for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c${srv}:${s.code}:0` }]);
@@ -140,19 +140,22 @@ async function buy(ctx: SmsCtx) {
   if(charge>Number(state.data["charge"])) return quote(ctx,service,country,srv);
   const {data:id,error}=await supabaseAdmin.rpc("bot3_reserve_sms",{_user:ctx.chatId,_key:String(state.data["key"]),_service:service,_service_name:cat.services.find(s=>s.code===service)?.name ?? service,_country:country,_country_name:cat.countries[country]?.eng ?? country,_charge:charge,_cost:Number(item.cost)});
   if(error || !id) return smsRespond(ctx,"Wallet balance is insufficient, or this checkout was already submitted.",[[{text:"💳 Top Up",callback_data:"dep"}],...home]);
+  await searchStep(id,"track");
   await clearState(ctx.chatId);
   const label=`${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)} · ${escapeHtml(cat.countries[country]?.eng ?? country)}`;
   const progress=(pct: number,line: string)=>{const f=Math.round(pct/10);return ["<b>📲 Allocating Your Number</b>",DIVIDER,`<code>[${"█".repeat(f)}${"░".repeat(10-f)}] ${pct}%</code>`,line,`🔍 ${label}`,"⏳ Please hold on a moment…"].join("\n");};
-  await smsRespond(ctx,progress(20,"📡 Connecting to secure server…"),[]).catch(()=>null);
+  const stopKb: InlineKeyboard=[[{text:"✖ Stop Searching",callback_data:`sms:stop:${id}`,style:"danger"}]];
+  await smsRespond(ctx,progress(20,"📡 Connecting to secure server…"),stopKb).catch(()=>null);
   try {
     // Keep searching while lines are busy (up to FIND_MS); the customer may stop the search.
     // Stopping only prevents further requests — a number already issued is delivered, never lost.
-    const stopKb=[[{text:"✖ Stop Searching",callback_data:`sms:stop:${id}`,style:"danger" as const}]];
     const started=Date.now(); let attempt=0; let response="";
     for(;;) {
       attempt++;
-      if(await stopped(id)) { response="NO_NUMBERS"; break; }
+      const next=await searchStep(id,"begin");
+      if(next!=="request") { response="NO_NUMBERS"; break; }
       response=(await apiFor(srv)("getNumber",{service,country,maxPrice:String(item.cost)})).trim();
+      if(response==="NO_NUMBERS") await searchStep(id,"empty");
       if(/^ACCESS_NUMBER:/.test(response) || response!=="NO_NUMBERS") break;
       if(await stopped(id) || Date.now()-started>FIND_MS) break;
       const pct=Math.min(95,30+Math.round((Date.now()-started)/FIND_MS*65));
@@ -162,13 +165,16 @@ async function buy(ctx: SmsCtx) {
     const match=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
     if(!match?.[1] || !match[2]) {
       const {data:refunded}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:id,_kind:"rejected",_value:response});
-      if(!refunded) { await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id); await notifyAdmins(`⚠️ SMS purchase needs review · <code>${id}</code> · ${escapeHtml(response.slice(0,80))}`); }
-      return smsRespond(ctx,refunded?`<b>📵 All lines busy</b>\n${DIVIDER}\nNo free number is available for ${label} right now.\n💰 ${money(charge)} has been returned to your wallet.\nPlease try another country.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c${srv}:${service}:0`}],[{text:"🔀 Try Other Server",callback_data:"sms:srv"}],...home]);
+      const current=await loadOrder(ctx.chatId,id);
+      const returned=refunded || Number(current?.refunded)>0;
+      if(!returned) { await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id).eq("status","purchasing").is("provider_id",null); await notifyAdmins(`⚠️ SMS purchase needs review · <code>${id}</code> · ${escapeHtml(response.slice(0,80))}`); }
+      return smsRespond(ctx,returned?`<b>💰 Payment Returned</b>\n${DIVIDER}\n${label}\nNo number was allocated.\n\nRefund · <b>${money(charge)}</b>\nThe amount is back in your wallet.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c${srv}:${service}:0`}],[{text:"🔀 Try Other Server",callback_data:"sms:srv"}],...home]);
     }
-    await smsRespond(ctx,progress(100,"✅ Number allocated"),[]).catch(()=>null);
-    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:srv==="1"?`g:${match[1]}`:match[1],phone:match[2],status:"waiting",expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id);
+    const stopRequested=await stopped(id);
+    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:srv==="1"?`g:${match[1]}`:match[1],phone:match[2],status:stopRequested?"cancel_pending":"waiting",purchase_in_flight:false,expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id).eq("status","purchasing").eq("refunded",0);
     if(saveError) { await notifyAdmins(`⚠️ SMS purchase requires reconciliation · order <code>${id}</code> · activation <code>${match[1]}</code>`); return smsRespond(ctx,"Your number was issued and is being finalized. Please do not buy again — Support will assist."); }
-    await showSmsOrder(ctx,id);
+    // Re-read STOP after saving too: the stop callback may race the save.
+    await showSmsOrder(ctx,id,stopRequested || await stopped(id));
     await notifyAdmins(`📲 <b>SMS NUMBER SOLD</b>\nUser <code>${ctx.chatId}</code> · ${usd(charge)}\nOrder <code>${id}</code> · ${srv==="1"?"Grizzly":"5SIM"}`);
   } catch {
     const {data:issued}=await supabaseAdmin.from("bot3_sms_orders").select("provider_id").eq("id",id).maybeSingle();
@@ -176,6 +182,11 @@ async function buy(ctx: SmsCtx) {
     await notifyAdmins(`⚠️ SMS purchase result uncertain · <code>${id}</code>. Reconcile with supplier before any refund.`);
     await smsRespond(ctx,"⏳ Connection interrupted. Your payment is safe and will not be charged twice — Support will confirm shortly.");
   }
+}
+async function searchStep(id: string,action: string) {
+  const {data,error}=await supabaseAdmin.rpc("bot3_sms_search_step",{_id:id,_action:action});
+  if(error) throw new Error("Search state unavailable");
+  return data;
 }
 async function stopped(id: string) {
   const {data:o}=await supabaseAdmin.from("bot3_sms_orders").select("provider_response").eq("id",id).maybeSingle();
@@ -186,9 +197,16 @@ async function loadOrder(user: number,id: string) {
   return data as unknown as SmsOrder | null;
 }
 export async function syncSmsOrder(order: SmsOrder,cancel=false) {
-  if(!order.provider_id || order.otp || ["refunded","failed","received"].includes(order.status)) return;
+  if(!order.provider_id || order.otp || Number(order.refunded)>0 || ["refunded","failed","received"].includes(order.status)) return;
+  // Record intent before claiming the poll lock, so a concurrent check cannot lose it.
+  if(cancel) {
+    const {error}=await supabaseAdmin.from("bot3_sms_orders").update({status:"cancel_pending",updated_at:new Date().toISOString()}).eq("id",order.id).is("otp",null).eq("refunded",0).in("status",SMS_RETRY_STATUSES);
+    if(error) throw new Error("Cancellation could not be saved");
+  }
   const {data:claimed}=await supabaseAdmin.rpc("bot3_claim_sms_poll",{_id:order.id}); if(!claimed) return;
   try {
+    const latest=await loadOrder(order.telegram_id,order.id);
+    if(!latest || latest.otp || Number(latest.refunded)>0) return;
     const api=apiFor(srvOf(order.provider_id)), pid=rawId(order.provider_id);
     const result=parseSmsStatus((await api("getStatus",{id:pid})).trim());
     if(result.kind==="otp" && result.code) {
@@ -197,15 +215,21 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
       await rewardReferrer(order.telegram_id,Number(order.charge));
       return;
     }
-    if(result.kind==="unknown") return;
-    if(cancel || Date.parse(order.expires_at)<=Date.now() || result.kind==="canceled") {
+    if(shouldCancelSms(latest.status,cancel,latest.expires_at) || result.kind==="canceled") {
       if(Date.now()-Date.parse(order.created_at)<SMS_CANCEL_DELAY_MS) return;
       const response=(await api("setStatus",{id:pid,status:"8"})).trim();
-      if(canRefundSms(response,order.otp)) await supabaseAdmin.rpc("bot3_finish_sms",{_id:order.id,_kind:"refund",_value:response});
+      const lateSms=parseSmsStatus(response);
+      if(lateSms.kind==="otp" && lateSms.code) {
+        const {data:saved}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:order.id,_kind:"otp",_value:lateSms.code});
+        if(saved) await rewardReferrer(order.telegram_id,Number(order.charge));
+      } else if(canRefundSms(response,latest.otp)) {
+        const {error}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:order.id,_kind:"refund",_value:response});
+        if(error) throw new Error("Refund will retry");
+      }
       else {
         const review=result.kind==="canceled" || Date.now()>Date.parse(order.expires_at)+5*60000;
-        await supabaseAdmin.from("bot3_sms_orders").update({status:review?"refund_review":"cancel_pending"}).eq("id",order.id);
-        if(review) await notifyAdmins(`⚠️ SMS cancellation requires supplier review · <code>${order.id}</code>`);
+        await supabaseAdmin.from("bot3_sms_orders").update({status:review?"refund_review":"cancel_pending"}).eq("id",order.id).is("otp",null).eq("refunded",0);
+        if(review && latest.status!=="refund_review") await notifyAdmins(`⚠️ SMS cancellation requires supplier review · <code>${order.id}</code>`);
       }
     }
   } finally { await supabaseAdmin.from("bot3_sms_orders").update({poll_locked_until:null,updated_at:new Date().toISOString()}).eq("id",order.id); }
@@ -214,13 +238,13 @@ export async function showSmsOrder(ctx: SmsCtx,id: string,cancel=false) {
   let order=await loadOrder(ctx.chatId,id); if(!order) return smsRespond(ctx,"Number not found.");
   const closed=(o: SmsOrder)=>Number(o.refunded)>0 || o.status==="refunded";
   if(closed(order)) return smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Status · <b>refunded</b>`,`Refunded · ${money(Number(order.refunded))}`,"This number is closed. Messages can no longer be checked."].join("\n"),[[{text:"📥 My Numbers",callback_data:"sms:my"}],...home]);
-  await syncSmsOrder(order,cancel); order=await loadOrder(ctx.chatId,id); if(!order)return;
+  await syncSmsOrder(order,cancel).catch(()=>null); order=await loadOrder(ctx.chatId,id); if(!order)return;
   if(closed(order)) return showSmsOrder(ctx,id);
   const mins=Math.max(0,Math.ceil((Date.parse(order.expires_at)-Date.now())/60000));
   const keyboard: InlineKeyboard=[[{text:"🔄 Check SMS / New Code",callback_data:`sms:o:${id}`,style:"primary"}]];
   if(!order.otp && order.provider_id) keyboard.push([{text:"✖ Cancel Number",callback_data:`sms:x:${id}`,style:"danger"}]);
   keyboard.push([{text:"📥 My Numbers",callback_data:"sms:my"}],...home);
-  await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Allocating…")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,"Cancellation and refund are available after 5 minutes if no SMS has arrived."].join("\n"),keyboard);
+  await smsRespond(ctx,order.otp?otpMessage(order):[`<b>📲 Your Virtual Number</b>`,DIVIDER,`Service · <b>${escapeHtml(order.service_name)}</b>`,`Country · ${escapeHtml(order.country_name)}`,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Allocating…")}</code>`,"",`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`Charged · ${money(Number(order.charge))}`,`Window remaining · ${mins} minutes`,"",["cancel_pending","refund_review"].includes(order.status)?"⏳ Cancellation requested. We will keep checking and refund once cancellation is confirmed.":"Cancellation available after 5 minutes, before any SMS arrives."].join("\n"),keyboard);
 }
 export async function showSmsOrders(ctx: SmsCtx,page=0) {
   const {data,count}=await supabaseAdmin.from("bot3_sms_orders").select("*",{count:"exact"}).eq("telegram_id",ctx.chatId).order("created_at",{ascending:false}).range(page*10,page*10+9);
@@ -234,7 +258,12 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
   if(base==="c") return showSmsCountries(ctx,a??"",Number(b??0),srv);
   if(base==="q") return quote(ctx,a??"",b??"",srv);
   if(action==="buy") return buy(ctx);
-  if(action==="stop") { const {data}=await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null).select("id"); if(data?.length) await smsRespond(ctx,"<b>✖ Stopping search…</b>\n"+DIVIDER+"\nYour money is being returned to your wallet.",[]).catch(()=>null); return; }
+  if(action==="stop") {
+    const o=await loadOrder(ctx.chatId,a??""); if(!o) return;
+    if(o.provider_id || Number(o.refunded)>0) return showSmsOrder(ctx,o.id,true);
+    const status=await searchStep(o.id,"stop");
+    return smsRespond(ctx,status==="refunded"?`<b>💰 Search Stopped</b>\n${DIVIDER}\n${money(Number(o.charge))} returned to your wallet.`:`<b>✖ Stopping Search</b>\n${DIVIDER}\nNo more search attempts will start.\nIf a request is already in progress, we must confirm its result before refunding.`,[[{text:"📥 View Order",callback_data:`sms:o:${o.id}`}],...home]);
+  }
   if(action==="pm") return showPremium(ctx);
   if(action==="pp") return showPremiumProduct(ctx,Number(a));
   if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");
@@ -265,13 +294,18 @@ export async function adminSmsView(action: string,page=0): Promise<{text:string;
   return {text:["<b>SMS Orders</b>",DIVIDER,...(data??[]).map(o=>`${o.provider_id?.startsWith("g:")?"⚡ Grizzly":o.provider_id?"🌍 5SIM":"—"} · ${o.service_name} · ${o.country_name} · ${usd(Number(o.charge))}\n<code>${o.telegram_id}</code> · ${o.status}`)].join("\n\n"),keyboard:[...pages("a:orders",page,count??0),...keyboard]};
 }
 export async function syncActiveSms() {
-  const {data}=await supabaseAdmin.from("bot3_sms_orders").select("*").in("status",["waiting","cancel_pending"]).order("updated_at",{ascending:true}).limit(50);
+  const {data:stops}=await supabaseAdmin.from("bot3_sms_orders").select("id").eq("status","purchasing").eq("search_tracked",true).eq("purchase_in_flight",false).eq("provider_response","STOP").limit(50);
+  for(const o of stops??[]) await searchStep(o.id,"stop").catch(()=>null);
+  const {data}=await supabaseAdmin.from("bot3_sms_orders").select("*").in("status",SMS_RETRY_STATUSES).order("updated_at",{ascending:true}).limit(50);
   for(const row of data??[]) {try{await syncSmsOrder(row as unknown as SmsOrder);}catch{ /* bounded next scheduled check */ }}
-  const {data:notifications}=await supabaseAdmin.from("bot3_sms_orders").select("*").in("status",["received","refunded"]).is("notified_at",null).lt("notification_attempts",3).limit(50);
+  const {data:notifications}=await supabaseAdmin.from("bot3_sms_orders").select("*").in("status",["received","refunded","failed"]).or("refunded.gt.0,otp.not.is.null").is("notified_at",null).lt("notification_attempts",3).limit(50);
   for(const o of notifications??[]) {
     const user=await getUser(o.telegram_id);const code=isCurrency(user?.currency)?user.currency:"USD";
-    const sent=await currencyScope.run({code},()=>sendMessage(o.telegram_id,o.otp?`<b>✅ SMS RECEIVED</b>\n${escapeHtml(o.service_name)} · <code>+${escapeHtml(o.phone??"")}</code>\n\nOTP: <code>${escapeHtml(o.otp)}</code>`:`<b>💰 REFUND CONFIRMED</b>\n${money(Number(o.refunded))} returned to your wallet.`,{reply_markup:ik([[{text:"📥 View Number",callback_data:`sms:o:${o.id}`}]] )}));
+    const sent=await currencyScope.run({code},()=>sendMessage(o.telegram_id,o.otp?otpMessage(o as unknown as SmsOrder):`<b>💰 Refund Confirmed</b>\n${DIVIDER}\nService · <b>${escapeHtml(o.service_name)}</b>\nCountry · ${escapeHtml(o.country_name)}\n\nReturned · <b>${money(Number(o.refunded))}</b>\nThe amount is back in your wallet.\n\nOrder ID · <code>${o.id}</code>`,{reply_markup:ik([[{text:"📥 View Number",callback_data:`sms:o:${o.id}`}]] )}));
     await supabaseAdmin.from("bot3_sms_orders").update({notification_attempts:o.notification_attempts+1,...(sent?{notified_at:new Date().toISOString()}:{})}).eq("id",o.id);
   }
   return {checked:data?.length??0};
+}
+function otpMessage(o: SmsOrder) {
+  return ["<b>✅ Your SMS Has Arrived</b>",DIVIDER,`Service · <b>${escapeHtml(o.service_name)}</b>`,`Country · ${escapeHtml(o.country_name)}`,`Number · <code>+${escapeHtml(o.phone??"")}</code>`,"","<b>🔐 Verification Code</b>",`<code>${escapeHtml(o.otp??"")}</code>`,"",`Order ID · <code>${o.id}</code>`,DIVIDER,"OTP delivered · this order is non-refundable."].join("\n");
 }

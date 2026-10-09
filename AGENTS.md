@@ -42,3 +42,4 @@
 - Reseller APIs use explicit per-bot /api/public/{bot}/v2 routes and docs, scoped keys, and atomic UUID-idempotent reservations; legacy v2 stays an SMM-only alias. This prevents cross-bot wallet use and duplicate debits.
 - Manual wallet adjustments capture the selected currency and exchange rate in per-bot state, validate through the shared adjustment parser, and convert once to USD; this keeps entry amounts and accounting consistent.
 - Frrr SMS rules live in `src/lib/bot/AGENTS.md`.
+- SMS search stop uses a transactional request-in-flight marker: refund only after a definitive no-number result; persist cancellation intent before polling locks and retry refund-review orders in the existing bounded job.

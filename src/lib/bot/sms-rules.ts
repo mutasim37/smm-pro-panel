@@ -1,5 +1,9 @@
 export const SMS_WINDOW_MS = 15 * 60_000;
 export const SMS_CANCEL_DELAY_MS = 5 * 60_000;
+export const SMS_RETRY_STATUSES = ["waiting", "cancel_pending", "refund_review"];
+export function shouldCancelSms(status: string, requested: boolean, expiresAt: string, now = Date.now()) {
+  return requested || status === "cancel_pending" || status === "refund_review" || Date.parse(expiresAt) <= now;
+}
 /** Customer price = supplier cost × admin multiplier (default 3×). */
 export function smsPrice(cost: number, multiplier = 3) {
   return Math.ceil(cost * multiplier * 100000) / 100000;
