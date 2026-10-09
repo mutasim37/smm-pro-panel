@@ -194,6 +194,7 @@ async function showPlatforms(ctx: Ctx) {
 
   await respond(ctx, text, [
     [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🔥 Popular", callback_data: "pop" }],
+    [{ text: "🧩 More Products", callback_data: "other" }],
     ...platformKeyboard(counts),
   ]);
 }

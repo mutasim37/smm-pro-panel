@@ -102,7 +102,6 @@ export function mainKeyboard(isAdmin: boolean) {
     rows.push(
     [{ text: "🛒 New Order" }, { text: "📦 My Orders" }],
     [{ text: "💰 Wallet" }, { text: "👤 Account" }],
-    [{ text: "🔎 Find by Code" }, { text: "🔥 Trending" }, { text: "🧩 More Products" }],
     [{ text: "🎁 Referral" }, { text: "💬 Help" }, { text: "ℹ️ About" }],
   );
   return {
