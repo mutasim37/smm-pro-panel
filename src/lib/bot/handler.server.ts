@@ -715,12 +715,27 @@ async function showFunds(ctx: Ctx) {
 /* ------------------------------- Binance Pay ------------------------------ */
 
 async function showBinance(ctx: Ctx, pendingOrder?: any) {
-  await setState(ctx.chatId, "await_bn_id", pendingOrder ? { pendingOrder } : {});
-  await respond(
-    ctx,
+  if (!pendingOrder) {
+    await setState(ctx.chatId, "await_bn_amount", {});
+    await respond(ctx, [
+      "<b>🟡 BINANCE PAY</b>", DIVIDER,
+      "💵 <b>How much USDT do you want to deposit?</b>",
+      `📉 <b>Minimum deposit</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
+      "<i>Send the amount, e.g. 5</i>",
+    ].join("\n"), [[{ text: "✖️ Cancel", callback_data: "cancel" }]]);
+    return;
+  }
+  return showBinanceInvoice(ctx.chatId, Number(pendingOrder.amount ?? pendingOrder.price ?? 0) || 0, pendingOrder);
+}
+
+async function showBinanceInvoice(chatId: number, amount: number, pendingOrder?: any) {
+  await setState(chatId, "await_bn_id", { amount, ...(pendingOrder ? { pendingOrder } : {}) });
+  await sendMessage(
+    chatId,
     [
       "<b>🟡 BINANCE PAY</b>",
       DIVIDER,
+      ...(amount > 0 ? [`💵 <b>Amount to send</b> · <code>${amount.toFixed(2)} USDT</code>`] : []),
       "📲 <b>Send USDT to this Binance Pay ID:</b>",
       `<code>${binancePayId()}</code>  <i>(tap to copy)</i>`,
       DIVIDER,
@@ -728,7 +743,7 @@ async function showBinance(ctx: Ctx, pendingOrder?: any) {
       "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send the amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID</b> and send it here.</blockquote>",
       "Each Order ID can be used only once.",
     ].join("\n"),
-    [[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]],
+    { reply_markup: ik([[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]]) },
   );
 }
 
@@ -750,9 +765,14 @@ async function verifyBinance(chatId: number, ref: string, data: Record<string, a
     await sendMessage(chatId, `⚠️ <b>Below minimum deposit.</b> This payment is ${result.amount} USDT, but the minimum is <code>$${minDepositUsd().toFixed(2)}</code>. Contact @${supportUsername()} for help.`, { reply_markup: retry });
     return;
   }
+  const expected = Number(data["amount"]) || 0;
+  if (expected > 0 && result.amount + 0.005 < expected) {
+    await sendMessage(chatId, `⚠️ <b>Amount mismatch.</b> You chose <code>${expected.toFixed(2)} USDT</code> but this payment is <code>${result.amount} USDT</code>. Contact @${supportUsername()} for help.`, { reply_markup: retry });
+    return;
+  }
   // UNIQUE tx_hash: the insert itself claims the payment once across all bots.
   const { error } = await supabaseAdmin.from("bot_deposits").insert({
-    telegram_id: chatId, amount_requested: result.amount, amount_credited: result.amount,
+    telegram_id: chatId, amount_requested: expected || result.amount, amount_credited: result.amount,
     tx_hash: `binance:${result.id}`, status: "confirmed", note: `binance pay ${result.amount} USDT; bot ${currentBot()}`,
     confirmed_at: new Date().toISOString(),
   });
@@ -1279,6 +1299,16 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       return true;
     }
     await showBkashInvoice(chatId, Math.round(amount * 100) / 100);
+    return true;
+  }
+
+  if (state.step === "await_bn_amount") {
+    const amount = Number(text.replace(/[^0-9.]/g, ""));
+    if (!(amount > 0) || amount < minDepositUsd()) {
+      await sendMessage(chatId, `⚠️ Send a valid amount. Minimum deposit is <code>$${minDepositUsd().toFixed(2)}</code>.`);
+      return true;
+    }
+    await showBinanceInvoice(chatId, Math.round(amount * 100) / 100);
     return true;
   }
 
