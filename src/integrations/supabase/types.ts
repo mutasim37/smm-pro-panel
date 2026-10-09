@@ -916,6 +916,69 @@ export type Database = {
         }
         Relationships: []
       }
+      bot3_premium_orders: {
+        Row: {
+          charge: number
+          created_at: string
+          id: string
+          plan: string
+          product_id: number
+          product_name: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          charge: number
+          created_at?: string
+          id?: string
+          plan: string
+          product_id: number
+          product_name: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          charge?: number
+          created_at?: string
+          id?: string
+          plan?: string
+          product_id?: number
+          product_name?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot3_premium_products: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string
+          id: number
+          name: string
+          price_month: number
+          price_year: number | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: number
+          name: string
+          price_month: number
+          price_year?: number | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: number
+          name?: string
+          price_month?: number
+          price_year?: number | null
+        }
+        Relationships: []
+      }
       bot3_service_cache: {
         Row: {
           key: string
@@ -1179,6 +1242,10 @@ export type Database = {
       bot3_adjust_balance: {
         Args: { _delta: number; _telegram_id: number }
         Returns: number
+      }
+      bot3_buy_premium: {
+        Args: { _plan: string; _product: number; _user: number }
+        Returns: string
       }
       bot3_claim_sms_poll: { Args: { _id: string }; Returns: boolean }
       bot3_finish_sms: {
