@@ -1,4 +1,4 @@
-import { handleSmsCallback, handleSmsStep, showSmsServices, showSmsOrders, adminSmsView } from "./sms.server";
+import { handleSmsCallback, handleSmsStep, showSmsServers, showSmsOrders, adminSmsView } from "./sms.server";
 import { parseBalanceAdjustment } from "./balance-adjustment";
 // Core bot brain: routing, menus, order flow, wallet flow.
 import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies, minDepositUsd } from "./config.server";
@@ -1643,7 +1643,7 @@ async function routeUpdate(update: any): Promise<void> {
   let pick = MENU[text.toLowerCase()] ?? (text.startsWith("/services") ? "svc" : undefined);
   if (pick && !menuAllowed(pick)) pick = undefined;
   switch (pick) {
-    case "sms": return showSmsServices(ctx);
+    case "sms": return showSmsServers(ctx);
     case "smsmy": return showSmsOrders(ctx);
     case "tgmy":
       await clearState(chatId);
@@ -1940,6 +1940,7 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
   }
   if (currentBot() === "sms") {
     if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action,page);return respond(ctx,v.text,v.keyboard);}
+    if (action === "psmsg") {await setState(ctx.chatId,"await_admin_smsg",{});return respond(ctx,"Send the Grizzly (Server 1) multiplier, e.g. 2.1 (cost $1 → $2.10).");}
     if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS price multiplier, e.g. 3 (supplier $1 → $3) or 1.5.");}
     if (!["panel","stats","users","deposits","tickets","broadcast","bal","ch","chset","choff","ref","pref"].includes(action)) return;
   }
