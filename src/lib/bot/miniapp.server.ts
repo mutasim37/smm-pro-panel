@@ -9,7 +9,7 @@ import { money, currencyScope } from "./views.server";
 import { isCurrency } from "./config.server";
 
 async function hmac(key: ArrayBuffer | Uint8Array, msg: string) {
-  const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const k = await crypto.subtle.importKey("raw", key as BufferSource, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
 }
 export async function verifyInitData(initData: string): Promise<number> {
