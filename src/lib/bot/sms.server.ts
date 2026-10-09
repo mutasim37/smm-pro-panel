@@ -78,16 +78,23 @@ async function buy(ctx: SmsCtx) {
   const {data:id,error}=await supabaseAdmin.rpc("bot3_reserve_sms",{_user:ctx.chatId,_key:String(state.data["key"]),_service:service,_service_name:cat.services.find(s=>s.code===service)?.name ?? service,_country:country,_country_name:cat.countries[country]?.eng ?? country,_charge:charge,_cost:Number(item.cost)});
   if(error || !id) return smsRespond(ctx,"Wallet balance is insufficient, or this checkout was already submitted.",[[{text:"💳 Top Up",callback_data:"dep"}],...home]);
   await clearState(ctx.chatId);
+  const label=`${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)} · ${escapeHtml(cat.countries[country]?.eng ?? country)}`;
+  const progress=(pct: number,line: string)=>{const f=Math.round(pct/10);return ["<b>📲 Allocating Your Number</b>",DIVIDER,`<code>[${"█".repeat(f)}${"░".repeat(10-f)}] ${pct}%</code>`,line,`🔍 ${label}`,"⏳ Please hold on a moment…"].join("\n");};
+  await smsRespond(ctx,progress(20,"📡 Connecting to secure server…"),[]).catch(()=>null);
   try {
-    const response=(await grizzly("getNumber",{service,country,maxPrice:String(item.cost)})).trim();
+    const pending=grizzly("getNumber",{service,country,maxPrice:String(item.cost)});
+    await new Promise(r=>setTimeout(r,700));
+    await smsRespond(ctx,progress(60,"🔎 Finding a fresh number…"),[]).catch(()=>null);
+    const response=(await pending).trim();
     const match=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
     if(!match?.[1] || !match[2]) {
       const {data:refunded}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:id,_kind:"rejected",_value:response});
-      if(!refunded) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id);
-      return smsRespond(ctx,refunded?"Supplier could not issue a number. Your wallet was fully refunded.":"Supplier result is uncertain. Your payment is reserved for admin review; we will not charge again.");
+      if(!refunded) { await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id); await notifyAdmins(`⚠️ SMS purchase needs review · <code>${id}</code> · ${escapeHtml(response.slice(0,80))}`); }
+      return smsRespond(ctx,refunded?`<b>📵 All lines busy</b>\n${DIVIDER}\nNo free number is available for ${label} right now.\n💰 ${money(charge)} has been returned to your wallet.\nPlease try another country.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c:${service}:0`}],...home]);
     }
+    await smsRespond(ctx,progress(100,"✅ Number allocated"),[]).catch(()=>null);
     const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:match[1],phone:match[2],status:"waiting",expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id);
-    if(saveError) { await notifyAdmins(`⚠️ SMS purchase requires reconciliation · order <code>${id}</code> · activation <code>${match[1]}</code>`); return smsRespond(ctx,"Your number was issued, but delivery needs admin review. Do not buy again."); }
+    if(saveError) { await notifyAdmins(`⚠️ SMS purchase requires reconciliation · order <code>${id}</code> · activation <code>${match[1]}</code>`); return smsRespond(ctx,"Your number was issued and is being finalized. Please do not buy again — Support will assist."); }
     await showSmsOrder(ctx,id);
     await notifyAdmins(`📲 <b>SMS NUMBER SOLD</b>\nUser <code>${ctx.chatId}</code> · ${usd(charge)}\nOrder <code>${id}</code>`);
   } catch {

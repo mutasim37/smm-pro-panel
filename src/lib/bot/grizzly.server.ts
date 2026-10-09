@@ -31,6 +31,13 @@ export async function grizzly(action: string, params: Record<string, string> = {
     const r = await call(`/user/buy/activation/${encodeURIComponent(country)}/${encodeURIComponent(op)}/${encodeURIComponent(service)}${q}`);
     const o = json(r.text);
     if (r.ok && o?.id && o?.phone) return `ACCESS_NUMBER:${o.id}:${String(o.phone).replace(/\D/g, "")}`;
+    // 5SIM definitive rejections (no number issued) → handler codes so the wallet refunds instantly.
+    const t = r.text.toLowerCase();
+    if (/no free phones|no product|not found|select operator|bad operator/.test(t)) return "NO_NUMBERS";
+    if (/not enough (user )?(balance|rating)/.test(t)) return "NO_BALANCE";
+    if (/bad country/.test(t)) return "SERVICE_UNAVAILABLE_REGION";
+    if (/bad product|server offline/.test(t)) return "BAD_SERVICE";
+    if (r.status === 401) return "BAD_KEY";
     return r.text.slice(0, 120) || "NO_NUMBERS";
   }
   if (action === "getStatus") {
