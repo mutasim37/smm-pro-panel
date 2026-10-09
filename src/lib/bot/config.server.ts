@@ -49,7 +49,7 @@ export type CurrencyCode = "USD" | "BDT" | "INR";
 
 /** Display currencies. All balances are stored in USD; these only change how values are shown. */
 export function currencies(): Record<CurrencyCode, { code: CurrencyCode; symbol: string; flag: string; label: string; rate: number }> {
-  const bdt = Number(process.env["BDT_RATE"] ?? "122");
+  const bdt = Number(process.env["BDT_RATE"] ?? "130");
   const inr = Number(process.env["INR_RATE"] ?? "88");
   return {
     USD: { code: "USD", symbol: "$", flag: "🇺🇸", label: "US Dollar", rate: 1 },
