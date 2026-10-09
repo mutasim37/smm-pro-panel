@@ -8,7 +8,7 @@ import { money, usd, DIVIDER, currencyScope } from "./views.server";
 import { isCurrency, supportUsername } from "./config.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
 import { rewardReferrer } from "./growth.server";
-import { smsPrice, parseSmsStatus, canRefundSms, shouldCancelSms, SMS_RETRY_STATUSES, SMS_CANCEL_DELAY_MS, SMS_WINDOW_MS } from "./sms-rules";
+import { smsPrice, parseSmsStatus, canRefundSms, shouldCancelSms, smsWindowMs, SMS_RETRY_STATUSES, SMS_CANCEL_DELAY_MS } from "./sms-rules";
 
 export type SmsCtx = { chatId: number; messageId?: number; fromPhoto?: boolean };
 type SmsOrder = { id: string; telegram_id: number; service_name: string; country_name: string; service: string; country: string; charge: number; provider_id: string | null; phone: string | null; otp: string | null; status: string; created_at: string; expires_at: string; notified_at: string | null; refunded: number };
@@ -127,7 +127,7 @@ export async function quote(ctx: SmsCtx, service: string, country: string, srv: 
   const charge = smsPrice(Number(item.cost),await multFor(srv));
   await setState(ctx.chatId,"sms_confirm",{service,country,charge,srv,key:crypto.randomUUID()});
   const user = await getUser(ctx.chatId);
-  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Server · <b>${SRV_NAME[srv]}</b>`,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation available after 5 minutes if no SMS arrives. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
+  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Server · <b>${SRV_NAME[srv]}</b>`,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", `Activation window: ${smsWindowMs(srv)/60000} minutes. Cancellation available after 5 minutes if no SMS arrives. No refunds after OTP delivery.`].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
@@ -171,7 +171,7 @@ async function buy(ctx: SmsCtx) {
       return smsRespond(ctx,returned?`<b>💰 Payment Returned</b>\n${DIVIDER}\n${label}\nNo number was allocated.\n\nRefund · <b>${money(charge)}</b>\nThe amount is back in your wallet.`:"⏳ Your request is being verified. Your payment is safe and will not be charged twice.",[[{text:"🌍 Choose Another Country",callback_data:`sms:c${srv}:${service}:0`}],[{text:"🔀 Try Other Server",callback_data:"sms:srv"}],...home]);
     }
     const stopRequested=await stopped(id);
-    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:srv==="1"?`g:${match[1]}`:match[1],phone:match[2],status:stopRequested?"cancel_pending":"waiting",purchase_in_flight:false,expires_at:new Date(Date.now()+SMS_WINDOW_MS).toISOString()}).eq("id",id).eq("status","purchasing").eq("refunded",0);
+    const {error:saveError}=await supabaseAdmin.from("bot3_sms_orders").update({provider_id:srv==="1"?`g:${match[1]}`:match[1],phone:match[2],status:stopRequested?"cancel_pending":"waiting",purchase_in_flight:false,expires_at:new Date(Date.now()+smsWindowMs(srv)).toISOString()}).eq("id",id).eq("status","purchasing").eq("refunded",0);
     if(saveError) { await notifyAdmins(`⚠️ SMS purchase requires reconciliation · order <code>${id}</code> · activation <code>${match[1]}</code>`); return smsRespond(ctx,"Your number was issued and is being finalized. Please do not buy again — Support will assist."); }
     // Re-read STOP after saving too: the stop callback may race the save.
     await showSmsOrder(ctx,id,stopRequested || await stopped(id));
@@ -216,7 +216,8 @@ export async function syncSmsOrder(order: SmsOrder,cancel=false) {
       return;
     }
     if(shouldCancelSms(latest.status,cancel,latest.expires_at) || result.kind==="canceled") {
-      if(Date.now()-Date.parse(order.created_at)<SMS_CANCEL_DELAY_MS) return;
+      const sessionStarted=Date.parse(order.expires_at)-smsWindowMs(srvOf(order.provider_id));
+      if(Date.now()-sessionStarted<SMS_CANCEL_DELAY_MS) return;
       const response=(await api("setStatus",{id:pid,status:"8"})).trim();
       const lateSms=parseSmsStatus(response);
       if(lateSms.kind==="otp" && lateSms.code) {
