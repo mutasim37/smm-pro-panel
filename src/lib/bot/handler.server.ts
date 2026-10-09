@@ -1,7 +1,7 @@
 import { handleSmsCallback, handleSmsStep, showSmsServices, showSmsOrders, adminSmsView } from "./sms.server";
 import { parseBalanceAdjustment } from "./balance-adjustment";
 // Core bot brain: routing, menus, order flow, wallet flow.
-import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies } from "./config.server";
+import { BRAND, EFFECTS, depositAddress, PAYMENT_WINDOW_MINUTES, supportUsername, isCurrency, currencies, minDepositUsd } from "./config.server";
 import { syncOrder, FINAL_STATUSES, type OrderRow } from "./orders.server";
 import { channelDraft, publishProduct, productRef, type ProductRef } from "./channel-posts.server";
 import {
@@ -949,7 +949,7 @@ async function askDepositAmount(ctx: Ctx) {
       DIVIDER,
       "How much would you like to deposit? Send the amount in <b>USD / USDT</b>.",
       "",
-      "🚫 <b>No minimum limit</b> — deposit as much or as little as you want.",
+      `📉 <b>Minimum deposit</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
       "",
       "<blockquote>Example: <code>10</code> or <code>2.5</code></blockquote>",
     ].join("\n"),
@@ -1244,6 +1244,10 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
       await sendMessage(chatId, "⚠️ Please send a valid amount, for example <code>10</code>.");
       return true;
     }
+    if (amount < minDepositUsd()) {
+      await sendMessage(chatId, `⚠️ Minimum deposit is <code>$${minDepositUsd().toFixed(2)}</code>. Please send a higher amount.`);
+      return true;
+    }
     await sendInvoice(chatId, Math.round(amount * 10000) / 10000, "Wallet top-up");
     return true;
   }
@@ -1261,6 +1265,11 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     const amount = Number(text.replace(/[,৳\s]|tk/gi, ""));
     if (!Number.isFinite(amount) || amount <= 0) {
       await sendMessage(chatId, "⚠️ Please send a valid amount in Taka, for example <code>500</code>.");
+      return true;
+    }
+    const minBdt = Math.ceil(minDepositUsd() * currencies().BDT.rate);
+    if (amount < minBdt) {
+      await sendMessage(chatId, `⚠️ Minimum deposit is <code>৳${minBdt}</code> (≈ $${minDepositUsd().toFixed(2)}). Please send a higher amount.`);
       return true;
     }
     await showBkashInvoice(chatId, Math.round(amount * 100) / 100);
