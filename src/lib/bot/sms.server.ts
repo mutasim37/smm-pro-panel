@@ -30,6 +30,7 @@ const catalogFor = async (s: Srv, force = false): Promise<SmsCatalog> => {
 const catalogReady = (s: Srv) => mem.has(s);
 async function loadingScreen(ctx: SmsCtx, srv: Srv) {
   await smsRespond(ctx, [`<b>⏳ ${SRV_NAME[srv]} · Loading products…</b>`, DIVIDER, "<code>[██████░░░░] 60%</code>", "📡 Connecting to server…", "Please wait a moment."].join("\n"), []).catch(() => null);
+  if (!ctx.messageId || ctx.fromPhoto) { ctx.messageId = undefined; ctx.fromPhoto = false; }
 }
 const apiFor = (s: Srv) => s === "1" ? gz : fivesim;
 async function multFor(s: Srv) { const st = await getSettings(); return s === "1" ? st.sms_g_multiplier : st.sms_multiplier; }
