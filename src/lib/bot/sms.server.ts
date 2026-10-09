@@ -178,7 +178,7 @@ async function buy(ctx: SmsCtx) {
     await notifyAdmins(`📲 <b>SMS NUMBER SOLD</b>\nUser <code>${ctx.chatId}</code> · ${usd(charge)}\nOrder <code>${id}</code> · ${srv==="1"?"Grizzly":"5SIM"}`);
   } catch {
     const {data:issued}=await supabaseAdmin.from("bot3_sms_orders").select("provider_id").eq("id",id).maybeSingle();
-    if(!issued?.provider_id) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id);
+    if(!issued?.provider_id) await supabaseAdmin.from("bot3_sms_orders").update({status:"purchase_review"}).eq("id",id).eq("status","purchasing").eq("refunded",0);
     await notifyAdmins(`⚠️ SMS purchase result uncertain · <code>${id}</code>. Reconcile with supplier before any refund.`);
     await smsRespond(ctx,"⏳ Connection interrupted. Your payment is safe and will not be charged twice — Support will confirm shortly.");
   }

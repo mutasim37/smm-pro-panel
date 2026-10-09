@@ -8,7 +8,14 @@ export async function gz(action: string, params: Record<string, string> = {}): P
   url.search = new URLSearchParams({ api_key: env("GRIZZLY_SMS_API_KEY"), action, ...params }).toString();
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-    return (await res.text()).trim();
+    const response = (await res.text()).trim();
+    if(action === "setStatus" && params["status"] === "8" && response !== "ACCESS_CANCEL") {
+      // A repeated cancel can return an error even though the first request succeeded.
+      const current = await gz("getStatus", { id: params["id"] ?? "" });
+      if(current === "STATUS_CANCEL") return "ACCESS_CANCEL";
+      if(current.startsWith("STATUS_OK:")) return current;
+    }
+    return response;
   } catch { throw new Error("Server did not respond. Please try again later."); }
 }
 
