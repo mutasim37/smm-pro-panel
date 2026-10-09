@@ -62,6 +62,12 @@ export function isCurrency(value: unknown): value is CurrencyCode {
   return value === "USD" || value === "BDT" || value === "INR";
 }
 
+/** Minimum deposit per bot, in USD. */
+export function minDepositUsd(): number {
+  const bot = currentBot();
+  return bot === "sms" ? 1 : bot === "tg" ? 0.5 : 0.2;
+}
+
 /** Payment window in minutes for a direct-pay invoice. */
 export const PAYMENT_WINDOW_MINUTES = 8;
 /** Oldest on-chain transaction age accepted for verification. */
