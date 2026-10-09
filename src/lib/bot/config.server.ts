@@ -53,7 +53,7 @@ export function currencies(): Record<CurrencyCode, { code: CurrencyCode; symbol:
   const inr = Number(process.env["INR_RATE"] ?? "88");
   return {
     USD: { code: "USD", symbol: "$", flag: "🇺🇸", label: "US Dollar", rate: 1 },
-    BDT: { code: "BDT", symbol: "৳", flag: "🇧🇩", label: "Bangladeshi Taka", rate: Number.isFinite(bdt) && bdt > 0 ? bdt : 122 },
+    BDT: { code: "BDT", symbol: "৳", flag: "🇧🇩", label: "Bangladeshi Taka", rate: Number.isFinite(bdt) && bdt > 0 ? bdt : 130 },
     INR: { code: "INR", symbol: "₹", flag: "🇮🇳", label: "Indian Rupee", rate: Number.isFinite(inr) && inr > 0 ? inr : 88 },
   };
 }
