@@ -41,6 +41,7 @@ export async function showSmsServices(ctx: SmsCtx, page = 0, search = "") {
     const keyboard: InlineKeyboard = [];
     const chunk = list.slice(page*10,page*10+10);
     for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c:${s.code}:0` }]);
+    if (!search && page === 0) keyboard.unshift([{ text: "🌐 Open Mini App · Quick Select", web_app: { url: "https://smm-pro-panel.lovable.app/sms" } }]);
     keyboard.push([{ text: "🔎 Search Any Service", callback_data: "sms:search", style: "primary" } as InlineKeyboard[number][number]]);
     const head = search ? `<b>🔎 Results for “${escapeHtml(search)}”</b>` : page === 0 ? "<b>⭐ Top Services</b>" : "<b>📲 All Services</b>";
     const text = [head, DIVIDER, `🟢 Live stock · <b>${list.length}</b> services`, "💡 Price shown is the cheapest country.", list.length ? "" : "No service found — try another name."].join("\n");
@@ -58,13 +59,13 @@ export async function showSmsCountries(ctx: SmsCtx, service: string, page = 0) {
     ...pages(`sms:c:${service}`,page,list.length), [{text:"⬅ Services",callback_data:"sms:s:0"}]
   ]);
 }
-async function quote(ctx: SmsCtx, service: string, country: string) {
+export async function quote(ctx: SmsCtx, service: string, country: string) {
   const cat = await smsCatalog(); const item = cat.prices[country]?.[service];
   if (!item || Number(item.count)<=0) return smsRespond(ctx,"This number is currently out of stock.");
   const charge = smsPrice(Number(item.cost),(await getSettings()).sms_multiplier);
   await setState(ctx.chatId,"sms_confirm",{service,country,charge,key:crypto.randomUUID()});
   const user = await getUser(ctx.chatId);
-  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation is subject to supplier approval. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Buy with Wallet",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
+  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation is subject to supplier approval. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
@@ -131,7 +132,7 @@ export async function showSmsOrder(ctx: SmsCtx,id: string,cancel=false) {
   await syncSmsOrder(order,cancel); order=await loadOrder(ctx.chatId,id); if(!order)return;
   if(closed(order)) return showSmsOrder(ctx,id);
   const mins=Math.max(0,Math.ceil((Date.parse(order.expires_at)-Date.now())/60000));
-  const keyboard: InlineKeyboard=[[{text:"🔄 Check OTP",callback_data:`sms:o:${id}`,style:"primary"}]];
+  const keyboard: InlineKeyboard=[[{text:"🔄 Check SMS / New Code",callback_data:`sms:o:${id}`,style:"primary"}]];
   if(!order.otp && order.provider_id) keyboard.push([{text:"✖ Cancel Number",callback_data:`sms:x:${id}`,style:"danger"}]);
   keyboard.push([{text:"📥 My Numbers",callback_data:"sms:my"}],...home);
   await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Pending review")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,"Cancellation and refund are available after 5 minutes, subject to supplier approval."].join("\n"),keyboard);
