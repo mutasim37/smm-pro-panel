@@ -1,7 +1,8 @@
-export const SMS_WINDOW_MS = 20 * 60_000;
+export const SMS_WINDOW_MS = 15 * 60_000;
 export const SMS_CANCEL_DELAY_MS = 5 * 60_000;
-export function smsPrice(cost: number, markup = 30) {
-  return Math.ceil(cost * (1 + markup / 100) * 100000) / 100000;
+/** Customer price = supplier cost × admin multiplier (default 3×). */
+export function smsPrice(cost: number, multiplier = 3) {
+  return Math.ceil(cost * multiplier * 100000) / 100000;
 }
 export function canRefundSms(response: string, otp: string | null) {
   return response === "ACCESS_CANCEL" && !otp;

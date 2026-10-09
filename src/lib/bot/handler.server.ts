@@ -1940,7 +1940,7 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
   }
   if (currentBot() === "sms") {
     if (["orders","pricing","provider","refresh"].includes(action)) {const v=await adminSmsView(action,page);return respond(ctx,v.text,v.keyboard);}
-    if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS markup percentage, e.g. 30.");}
+    if (action === "psms") {await setState(ctx.chatId,"await_admin_sms",{});return respond(ctx,"Send the SMS price multiplier, e.g. 3 (supplier $1 → $3) or 1.5.");}
     if (!["panel","stats","users","deposits","tickets","broadcast","bal","ch","chset","choff","ref","pref"].includes(action)) return;
   }
   if (action === "panel") {

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SmsRouteImport } from './routes/sms'
 import { Route as ApiPublicDocsRouteImport } from './routes/api/public/docs'
 import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
 import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
@@ -29,6 +30,11 @@ import { Route as ApiPublicTgV2RouteImport } from './routes/api/public/tg/v2'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SmsRoute = SmsRouteImport.update({
+  id: '/sms',
+  path: '/sms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicDocsRoute = ApiPublicDocsRouteImport.update({
@@ -112,6 +118,7 @@ const ApiPublicTgV2Route = ApiPublicTgV2RouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
@@ -224,6 +236,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SmsRoute: typeof SmsRoute
   ApiPublicDocsRoute: typeof ApiPublicDocsRoute
   ApiPublicV2Route: typeof ApiPublicV2Route
   ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
@@ -248,6 +261,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sms': {
+      id: '/sms'
+      path: '/sms'
+      fullPath: '/sms'
+      preLoaderRoute: typeof SmsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/docs': {
@@ -360,6 +380,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SmsRoute: SmsRoute,
   ApiPublicDocsRoute: ApiPublicDocsRoute,
   ApiPublicV2Route: ApiPublicV2Route,
   ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,

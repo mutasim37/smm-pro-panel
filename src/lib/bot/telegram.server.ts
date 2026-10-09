@@ -6,6 +6,7 @@ export type InlineButton = {
   text: string;
   callback_data?: string;
   url?: string;
+  web_app?: { url: string };
   style?: "success" | "danger" | "primary";
 };
 

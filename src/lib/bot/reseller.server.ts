@@ -89,7 +89,7 @@ async function tgAction(uid:number,p:Record<string,string>){
 async function buySms(uid:number,p:Record<string,string>,key:string){
  const {data:old}=await supabaseAdmin.from('bot3_sms_orders').select('id,status,phone,otp').eq('telegram_id',uid).eq('request_key',key).maybeSingle();if(old)return {order:old.id,...old};
  const service=p['service']??'',country=p['country']??'',cat=await smsCatalog(true),item=cat.prices[country]?.[service];if(!item||Number(item.count)<=0)return {error:'Number out of stock'};
- const cost=Number(item.cost),charge=smsPrice(cost,(await getSettings()).sms_markup_pct);
+ const cost=Number(item.cost),charge=smsPrice(cost,(await getSettings()).sms_multiplier);
  const {data:id,error}=await supabaseAdmin.rpc('bot3_reserve_sms',{_user:uid,_key:key,_service:service,_service_name:cat.services.find(s=>s.code===service)?.name??service,_country:country,_country_name:cat.countries[country]?.eng??country,_charge:charge,_cost:cost});if(error||!id)return {error:'Insufficient balance or checkout already submitted'};
  try{const response=(await grizzly('getNumber',{service,country,maxPrice:String(cost)})).trim(),m=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
  if(!m?.[1]||!m[2]){const {data:refund}=await supabaseAdmin.rpc('bot3_finish_sms',{_id:id,_kind:'rejected',_value:response});if(!refund)await supabaseAdmin.from('bot3_sms_orders').update({status:'purchase_review'}).eq('id',id);return {order:id,status:refund?'Refunded':'Review'};}
@@ -97,7 +97,7 @@ async function buySms(uid:number,p:Record<string,string>,key:string){
  }catch{await supabaseAdmin.from('bot3_sms_orders').update({status:'purchase_review'}).eq('id',id);return {order:id,status:'Review',message:'Do not repurchase. Contact Support.'};}
 }
 async function smsAction(uid:number,p:Record<string,string>){
- if(p['action']==='services'){const cat=await smsCatalog(),markup=(await getSettings()).sms_markup_pct;return Object.entries(cat.prices).flatMap(([country,items])=>Object.entries(items).filter(([service,i])=>Number(i.count)>0&&(!p['service']||p['service']===service)&&(!p['country']||p['country']===country)).map(([service,i])=>({service,name:cat.services.find(s=>s.code===service)?.name??service,country,country_name:cat.countries[country]?.eng??country,price:smsPrice(Number(i.cost),markup),stock:Number(i.count),currency:'USD'})));}
+ if(p['action']==='services'){const cat=await smsCatalog(),markup=(await getSettings()).sms_multiplier;return Object.entries(cat.prices).flatMap(([country,items])=>Object.entries(items).filter(([service,i])=>Number(i.count)>0&&(!p['service']||p['service']===service)&&(!p['country']||p['country']===country)).map(([service,i])=>({service,name:cat.services.find(s=>s.code===service)?.name??service,country,country_name:cat.countries[country]?.eng??country,price:smsPrice(Number(i.cost),markup),stock:Number(i.count),currency:'USD'})));}
  if(p['action']==='orders')return (await supabaseAdmin.from('bot3_sms_orders').select('id,phone,status,otp,charge,expires_at').eq('telegram_id',uid).order('created_at',{ascending:false}).limit(50)).data??[];
  if(!validRequestId(p['order']??''))return {error:'Valid order UUID required'};
  const {data:o}=await supabaseAdmin.from('bot3_sms_orders').select('*').eq('telegram_id',uid).eq('id',p['order']??'').maybeSingle();if(!o)return {error:'Order not found'};
