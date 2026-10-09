@@ -15,6 +15,7 @@ type SmsOrder = { id: string; telegram_id: number; service_name: string; country
 const home: InlineKeyboard = [[{ text: "🏠 Home", callback_data: "home" }]];
 /** Server 1 = Grizzly SMS, Server 2 = 5SIM. Grizzly orders store provider_id as "g:<id>". */
 export type Srv = "1" | "2";
+const FIND_MS = 50_000;
 const SRV_NAME: Record<Srv, string> = { "1": "Server 1", "2": "Server 2" };
 // Per-isolate memory cache: instant repeat clicks; stale copies are served while one refresh runs.
 const mem = new Map<Srv, { v: SmsCatalog; at: number }>(); const inflight = new Map<Srv, Promise<SmsCatalog>>();
@@ -121,10 +122,20 @@ async function buy(ctx: SmsCtx) {
   const progress=(pct: number,line: string)=>{const f=Math.round(pct/10);return ["<b>📲 Allocating Your Number</b>",DIVIDER,`<code>[${"█".repeat(f)}${"░".repeat(10-f)}] ${pct}%</code>`,line,`🔍 ${label}`,"⏳ Please hold on a moment…"].join("\n");};
   await smsRespond(ctx,progress(20,"📡 Connecting to secure server…"),[]).catch(()=>null);
   try {
-    const pending=apiFor(srv)("getNumber",{service,country,maxPrice:String(item.cost)});
-    await new Promise(r=>setTimeout(r,700));
-    await smsRespond(ctx,progress(60,"🔎 Finding a fresh number…"),[]).catch(()=>null);
-    const response=(await pending).trim();
+    // Keep searching while lines are busy (up to FIND_MS); the customer may stop the search.
+    // Stopping only prevents further requests — a number already issued is delivered, never lost.
+    const stopKb=[[{text:"✖ Stop Searching",callback_data:`sms:stop:${id}`,style:"danger" as const}]];
+    const started=Date.now(); let attempt=0; let response="";
+    for(;;) {
+      attempt++;
+      response=(await apiFor(srv)("getNumber",{service,country,maxPrice:String(item.cost)})).trim();
+      if(/^ACCESS_NUMBER:/.test(response) || response!=="NO_NUMBERS") break;
+      const {data:o}=await supabaseAdmin.from("bot3_sms_orders").select("provider_response").eq("id",id).maybeSingle();
+      if(o?.provider_response==="STOP" || Date.now()-started>FIND_MS) break;
+      const pct=Math.min(95,30+Math.round((Date.now()-started)/FIND_MS*65));
+      await smsRespond(ctx,progress(pct,`🔎 Finding number${".".repeat(1+attempt%3)} · attempt ${attempt}`),stopKb).catch(()=>null);
+      await new Promise(r=>setTimeout(r,4000));
+    }
     const match=/^ACCESS_NUMBER:(\d+):(\d+)$/.exec(response);
     if(!match?.[1] || !match[2]) {
       const {data:refunded}=await supabaseAdmin.rpc("bot3_finish_sms",{_id:id,_kind:"rejected",_value:response});
@@ -196,6 +207,7 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
   if(base==="c") return showSmsCountries(ctx,a??"",Number(b??0),srv);
   if(base==="q") return quote(ctx,a??"",b??"",srv);
   if(action==="buy") return buy(ctx);
+  if(action==="stop") { await supabaseAdmin.from("bot3_sms_orders").update({provider_response:"STOP"}).eq("id",a??"").eq("telegram_id",ctx.chatId).eq("status","purchasing").is("provider_id",null); return; }
   if(action==="my") return showSmsOrders(ctx,Number(a??0));
   if(action==="o" || action==="x") return showSmsOrder(ctx,a??"",action==="x");
   if(base==="search") {await setState(ctx.chatId,"sms_search",{srv});return smsRespond(ctx,"Send a service name or code, such as Telegram or tg.");}
