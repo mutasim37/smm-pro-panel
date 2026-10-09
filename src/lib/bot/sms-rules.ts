@@ -1,4 +1,7 @@
 export const SMS_WINDOW_MS = 15 * 60_000;
+export function smsWindowMs(server: "1" | "2") {
+  return server === "1" ? 20 * 60_000 : SMS_WINDOW_MS;
+}
 export const SMS_CANCEL_DELAY_MS = 5 * 60_000;
 export const SMS_RETRY_STATUSES = ["waiting", "cancel_pending", "refund_review"];
 export function shouldCancelSms(status: string, requested: boolean, expiresAt: string, now = Date.now()) {

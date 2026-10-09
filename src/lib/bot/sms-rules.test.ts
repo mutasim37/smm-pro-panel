@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { smsPrice, canRefundSms, parseSmsStatus, shouldCancelSms, SMS_RETRY_STATUSES, SMS_WINDOW_MS, SMS_CANCEL_DELAY_MS } from "./sms-rules";
+import { smsPrice, canRefundSms, parseSmsStatus, shouldCancelSms, smsWindowMs, SMS_RETRY_STATUSES, SMS_WINDOW_MS, SMS_CANCEL_DELAY_MS } from "./sms-rules";
 import { runAsBot, scopedTable, scopedRpc } from "./scope.server";
 test("SMS default pricing is 3x supplier cost",()=>assert.equal(smsPrice(1),3));
 test("admin multiplier 1.5x applies",()=>assert.equal(smsPrice(2,1.5),3));
@@ -8,6 +8,8 @@ test("OTP delivery prohibits refund even after supplier cancel",()=>assert.equal
 test("expiry or cancel status alone never authorizes refund",()=>assert.equal(canRefundSms("STATUS_CANCEL",null),false));
 test("explicit supplier cancel without OTP permits refund",()=>assert.equal(canRefundSms("ACCESS_CANCEL",null),true));
 test("activation window is fifteen minutes",()=>assert.equal(SMS_WINDOW_MS,900000));
+test("Server 1 session lasts twenty minutes",()=>assert.equal(smsWindowMs("1"),1200000));
+test("Server 2 session remains fifteen minutes",()=>assert.equal(smsWindowMs("2"),900000));
 test("early cancel delay is five minutes",()=>assert.equal(SMS_CANCEL_DELAY_MS,300000));
 test("pending cancellation retries before expiry without another click",()=>assert.equal(shouldCancelSms("cancel_pending",false,"2026-10-10T00:00:00Z",0),true));
 test("refund review remains in automatic retry queue",()=>assert.equal(SMS_RETRY_STATUSES.includes("refund_review"),true));
