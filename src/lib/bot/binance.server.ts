@@ -20,10 +20,19 @@ export async function findBinancePayment(ref: string): Promise<BinanceResult> {
   if (!apiKey || !secret) return { ok: false, reason: "unavailable" };
   const start = Date.now() - 72 * 3600_000;
   const q = `startTime=${start}&limit=100&recvWindow=10000&timestamp=${Date.now()}`;
+  const sig = await sign(q, secret);
+  let json: any = null;
+  // Some Binance hosts geo-block cloud edge IPs (HTTP 451/403); try alternates.
+  for (const host of ["api.binance.com", "api-gcp.binance.com", "api1.binance.com", "api2.binance.com", "api3.binance.com", "api4.binance.com"]) {
+    try {
+      const res = await fetch(`https://${host}/sapi/v1/pay/transactions?${q}&signature=${sig}`, { headers: { "X-MBX-APIKEY": apiKey } });
+      const j: any = await res.json().catch(() => null);
+      if (res.ok && Array.isArray(j?.data)) { json = j; break; }
+      console.error("binance pay", host, res.status, j?.code, j?.msg);
+    } catch (e) { console.error("binance pay", host, String(e)); }
+  }
+  if (!json) return { ok: false, reason: "unavailable" };
   try {
-    const res = await fetch(`https://api.binance.com/sapi/v1/pay/transactions?${q}&signature=${await sign(q, secret)}`, { headers: { "X-MBX-APIKEY": apiKey } });
-    const json: any = await res.json();
-    if (!res.ok || !Array.isArray(json?.data)) return { ok: false, reason: "unavailable" };
     const id = ref.trim();
     const tx = json.data.find((t: any) => String(t.orderId) === id || String(t.transactionId) === id);
     if (!tx) return { ok: false, reason: "not_found" };
