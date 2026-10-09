@@ -152,7 +152,10 @@ export async function sendDocumentFile(chatId: number, filename: string, content
   }
 }
 
+const answered = new Set<string>();
 export function answerCallback(id: string, text?: string, alert = false) {
+  if (answered.has(id)) return Promise.resolve(null);
+  answered.add(id); if (answered.size > 500) answered.clear();
   return tg("answerCallbackQuery", {
     callback_query_id: id,
     ...(text ? { text, show_alert: alert } : {}),

@@ -41,7 +41,7 @@ export async function upsertUser(
     .maybeSingle();
 
   if (existing) {
-    await supabaseAdmin
+    void supabaseAdmin
       .from("bot_users")
       .update({
         username: from.username ?? null,
@@ -50,7 +50,7 @@ export async function upsertUser(
         language_code: from.language_code ?? null,
         last_seen_at: new Date().toISOString(),
       })
-      .eq("telegram_id", from.id);
+      .eq("telegram_id", from.id).then(() => null, () => null);
     return { user: existing as unknown as BotUser, isNew: false };
   }
 

@@ -1535,13 +1535,16 @@ const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup"
 };
 
 export async function handleUpdate(update: any): Promise<void> {
-  await loadBotAccess();
   const from = update.callback_query?.from ?? (update.message ?? update.edited_message)?.from;
   let code: "USD" | "BDT" | "INR" = "USD";
-  if (from?.id) {
-    const { data } = await supabaseAdmin.from("bot_users").select("currency").eq("telegram_id", from.id).maybeSingle();
-    if (isCurrency(data?.currency)) code = data.currency;
-  }
+  // Speed: answer the button spinner instantly and run independent lookups in parallel.
+  const cq = update.callback_query;
+  if (cq?.id && !String(cq.data ?? "").startsWith("fj")) { cq.__answered = true; void answerCallback(cq.id).catch(() => null); }
+  const [, cur] = await Promise.all([
+    loadBotAccess(),
+    from?.id ? supabaseAdmin.from("bot_users").select("currency").eq("telegram_id", from.id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  if (isCurrency(cur.data?.currency)) code = cur.data.currency;
   return currencyScope.run({ code }, () => routeUpdate(update));
 }
 
@@ -1717,7 +1720,7 @@ async function handleCallback(query: any) {
     fromPhoto: Boolean(query.message?.photo),
   };
 
-  const {user:callbackUser} = await upsertUser(query.from);
+  const [{user:callbackUser}, joined] = await Promise.all([upsertUser(query.from), isJoined(Number(query.from.id))]);
   if (callbackUser.is_banned) {await answerCallback(query.id,"Your access has been suspended.");return;}
 
   const [head, a, b] = data.split(":");
@@ -1726,7 +1729,7 @@ async function handleCallback(query: any) {
     return;
   }
 
-  if (!(await isJoined(Number(query.from.id)))) {
+  if (!joined) {
     const gate = await joinGate();
     await answerCallback(query.id, head === "fj" ? "❌ Join the channel first, then tap Verify." : undefined, head === "fj");
     return respond(ctx, gate.text, gate.keyboard);
