@@ -1,7 +1,7 @@
 - [x] Separate SMM/TG/SMS reseller APIs and Markdown docs, per-bot keys and wallet-protected actions.
 - [x] Publish latest app, register all three Telegram webhooks and verify live API docs/authentication without buying stock. SMM wallet checked with existing key.
 # Tasks
-- [ ] Keep number search enabled; set Server 1 session to 20 minutes with cancellation after 5 minutes, leaving Server 2 unchanged.
+- [x] Keep number search enabled; set Server 1 session to 20 minutes with cancellation after 5 minutes, leaving Server 2 unchanged; 18 tests passed.
 - [x] Fix SMS search-stop/cancellation refunds and improve OTP messages; 16 safe tests, no supplier funds spent.
 - [ ] Reconcile four pre-existing uncertain SMS purchases: supplier issuance evidence required before refunding; STOP alone is not proof of no issued number.
 - [x] Build isolated Frrr SMS with Grizzly catalog, safe wallet purchases, active-only OTP polling and provider-confirmed refunds.

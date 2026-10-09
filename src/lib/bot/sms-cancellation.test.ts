@@ -1,4 +1,3 @@
-/// <reference types="bun" />
 import { afterEach, expect, mock, test } from "bun:test";
 
 let order: Record<string, unknown>;
