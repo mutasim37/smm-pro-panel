@@ -724,7 +724,8 @@ async function showBinance(ctx: Ctx, pendingOrder?: any) {
       "📲 <b>Send USDT to this Binance Pay ID:</b>",
       `<code>${binancePayId()}</code>  <i>(tap to copy)</i>`,
       DIVIDER,
-      "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send any amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID</b> and send it here.</blockquote>",
+      `📉 <b>Minimum deposit</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
+      "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send the amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID</b> and send it here.</blockquote>",
       "Each Order ID can be used only once.",
     ].join("\n"),
     [[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]],
@@ -743,6 +744,10 @@ async function verifyBinance(chatId: number, ref: string, data: Record<string, a
       unavailable: "⚠️ <b>Verification is temporarily unavailable.</b> Please try again shortly.",
     };
     await sendMessage(chatId, `${reasons[result.reason]}\n${DIVIDER}\nSend the Order ID again or contact @${supportUsername()}.`, { reply_markup: retry });
+    return;
+  }
+  if (result.amount < minDepositUsd()) {
+    await sendMessage(chatId, `⚠️ <b>Below minimum deposit.</b> This payment is ${result.amount} USDT, but the minimum is <code>$${minDepositUsd().toFixed(2)}</code>. Contact @${supportUsername()} for help.`, { reply_markup: retry });
     return;
   }
   // UNIQUE tx_hash: the insert itself claims the payment once across all bots.

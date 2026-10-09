@@ -7,6 +7,7 @@ import {
   MAX_TX_AGE_HOURS,
   supportUsername,
   currencies,
+  minDepositUsd,
   type CurrencyCode,
 } from "./config.server";
 import { escapeHtml, type InlineKeyboard } from "./telegram.server";
@@ -295,7 +296,7 @@ export function fundsText(balance: number, address: string): string {
     "💱 <b>Rate</b> · <code>1 USDT = " + money(1) + "</code>",
     "",
     "🪙 <b>Accepted</b> · USDT (BEP20 / BNB Smart Chain)",
-    "🚫 <b>Minimum</b> · none — deposit any amount you like",
+    `📉 <b>Minimum</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
     "⚡ <b>Confirmation</b> · automatic, on-chain",
     "",
     `📥 <b>Deposit address</b>`,
