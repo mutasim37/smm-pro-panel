@@ -65,7 +65,7 @@ export async function quote(ctx: SmsCtx, service: string, country: string) {
   const charge = smsPrice(Number(item.cost),(await getSettings()).sms_multiplier);
   await setState(ctx.chatId,"sms_confirm",{service,country,charge,key:crypto.randomUUID()});
   const user = await getUser(ctx.chatId);
-  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation is subject to supplier approval. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
+  await smsRespond(ctx,["<b>🧾 Number Summary</b>",DIVIDER,`Service · <b>${escapeHtml(cat.services.find(s=>s.code===service)?.name ?? service)}</b>`,`Country · <b>${escapeHtml(cat.countries[country]?.eng ?? country)}</b>`,`Total · <b>${money(charge)}</b>`,`Wallet · <code>${money(Number(user?.balance ?? 0))}</code>`,"", "Activation window: 15 minutes. Cancellation available after 5 minutes if no SMS arrives. No refunds after OTP delivery."].join("\n"),[[{text:"✅ Confirm & Get Number",callback_data:"sms:buy",style:"success"}],[{text:"💳 Top Up",callback_data:"dep",style:"primary"},{text:"✖ Cancel",callback_data:"cancel",style:"danger"}]]);
 }
 async function buy(ctx: SmsCtx) {
   const state = await getState(ctx.chatId); if(state.step!=="sms_confirm") return smsRespond(ctx,"This checkout has expired. Please choose a number again.");
@@ -142,7 +142,7 @@ export async function showSmsOrder(ctx: SmsCtx,id: string,cancel=false) {
   const keyboard: InlineKeyboard=[[{text:"🔄 Check SMS / New Code",callback_data:`sms:o:${id}`,style:"primary"}]];
   if(!order.otp && order.provider_id) keyboard.push([{text:"✖ Cancel Number",callback_data:`sms:x:${id}`,style:"danger"}]);
   keyboard.push([{text:"📥 My Numbers",callback_data:"sms:my"}],...home);
-  await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Pending review")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,"Cancellation and refund are available after 5 minutes, subject to supplier approval."].join("\n"),keyboard);
+  await smsRespond(ctx,[`<b>📲 ${escapeHtml(order.service_name)} · ${escapeHtml(order.country_name)}</b>`,DIVIDER,`Number · <code>${escapeHtml(order.phone ? "+"+order.phone : "Allocating…")}</code>`,`Status · <b>${escapeHtml(order.status.replaceAll("_"," "))}</b>`,`OTP · <code>${escapeHtml(order.otp ?? "Waiting for SMS…")}</code>`,`Charged · ${money(Number(order.charge))}`,order.otp?"OTP delivered · non-refundable":`Window remaining · ${mins} minutes`,"Cancellation and refund are available after 5 minutes if no SMS has arrived."].join("\n"),keyboard);
 }
 export async function showSmsOrders(ctx: SmsCtx,page=0) {
   const {data,count}=await supabaseAdmin.from("bot3_sms_orders").select("*",{count:"exact"}).eq("telegram_id",ctx.chatId).order("created_at",{ascending:false}).range(page*10,page*10+9);
