@@ -22,7 +22,7 @@ function loadCatalog(s: Srv, force: boolean) {
   const run = inflight.get(s) ?? (s === "1" ? gzCatalog(force) : fivesimCatalog(force)).then(v => { mem.set(s, { v, at: Date.now() }); return v; }).finally(() => inflight.delete(s));
   inflight.set(s, run); return run;
 }
-const catalogFor = async (s: Srv, force = false): Promise<SmsCatalog> => {
+export const catalogFor = async (s: Srv, force = false): Promise<SmsCatalog> => {
   const m = mem.get(s);
   if (!force && m) { if (Date.now() - m.at > 180000) void loadCatalog(s, false).catch(() => null); return m.v; }
   return loadCatalog(s, force);
@@ -33,7 +33,7 @@ async function loadingScreen(ctx: SmsCtx, srv: Srv) {
   if (!ctx.messageId || ctx.fromPhoto) { delete ctx.messageId; ctx.fromPhoto = false; }
 }
 const apiFor = (s: Srv) => s === "1" ? gz : fivesim;
-async function multFor(s: Srv) { const st = await getSettings(); return s === "1" ? st.sms_g_multiplier : st.sms_multiplier; }
+export async function multFor(s: Srv) { const st = await getSettings(); return s === "1" ? st.sms_g_multiplier : st.sms_multiplier; }
 const srvOf = (providerId: string | null): Srv => providerId?.startsWith("g:") ? "1" : "2";
 const rawId = (providerId: string) => providerId.replace(/^g:/, "");
 function split(action: string): { base: string; srv: Srv } {
@@ -78,7 +78,7 @@ export async function showSmsServices(ctx: SmsCtx, page = 0, search = "", srv: S
     const keyboard: InlineKeyboard = [];
     const chunk = list.slice(page*10,page*10+10);
     for (const s of chunk) keyboard.push([{ text: label(s), callback_data:`sms:c${srv}:${s.code}:0` }]);
-    if (!search && page === 0 && srv === "2") keyboard.unshift([{ text: "🌐 Open Mini App · Quick Select", web_app: { url: "https://smm-pro-panel.lovable.app/sms" } }]);
+    if (!search && page === 0) keyboard.unshift([{ text: `🌐 Open Mini App · ${SRV_NAME[srv]}`, web_app: { url: `https://smm-pro-panel.lovable.app/sms?s=${srv}` } }]);
     keyboard.push([{ text: "🔎 Search Any Service", callback_data: `sms:search${srv}`, style: "primary" } as InlineKeyboard[number][number]]);
     const head = (search ? `<b>🔎 Results for “${escapeHtml(search)}”</b>` : page === 0 ? "<b>⭐ Top Services</b>" : "<b>📲 All Services</b>") + ` · ${SRV_NAME[srv]}`;
     const text = [head, DIVIDER, `🟢 Live stock · <b>${list.length}</b> services`, "💡 Price shown is the cheapest country.", list.length ? "" : "No service found — try another name."].join("\n");
