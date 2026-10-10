@@ -188,7 +188,7 @@ export async function adminReferrals(): Promise<{ text: string; keyboard: Inline
   return {
     text: ["<b>🎁 Referral Program</b>", DIVIDER, `💸 <b>Commission</b> · <code>${settings.ref_pct}%</code> of first purchase`, DIVIDER, "<b>Top referrers</b>", lines.join("\n") || "—"].join("\n"),
     keyboard: [
-      [{ text: "✏️ Edit Commission %", callback_data: "a:pref" }],
+      [{ text: "✏️ Edit Commission %", callback_data: "a:pref" }, { text: "📣 Promoters", callback_data: "pm:adm" }],
       [{ text: "⬅️ Admin Panel", callback_data: "a:panel" }, { text: "🏠 Home", callback_data: "home" }],
     ],
   };

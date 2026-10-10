@@ -32,6 +32,8 @@ import { currentBot, runAsBot, type BotId } from "./scope.server";
 import { adminCoupons, checkCoupon, COUPON_HELP, couponCard, createCoupon, disableCoupon, redeemCoupon, releaseCoupon } from "./coupons.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
+import { addPromoter, adminPromoters, attachPromoter, creditPromoter, decideWithdraw, getPromoter, promoterView, removePromoter, requestWithdraw, withdrawMethods } from "./promoter.server";
+import { isPromoMethod } from "./promoter-rules";
 import { adminChannel, adminPopular, adminReferrals, attachReferrer, isJoined, joinGate, popularIds, productLink, referralView, rewardReferrer, setForceChannel, shareUrl, togglePin } from "./growth.server";
 import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtGuide, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
 import {
@@ -782,6 +784,7 @@ async function verifyBinance(chatId: number, ref: string, data: Record<string, a
     return;
   }
   const balance = await adjustBalance(chatId, result.amount);
+  await creditPromoter(chatId, result.amount);
   await clearState(chatId);
   await sendMessage(chatId, [
     "<b>✅ BINANCE PAYMENT CONFIRMED</b>", DIVIDER,
@@ -931,6 +934,7 @@ async function creditBkash(chatId: number, trxIdRaw: string, amountBdt: number, 
     confirmed_at: new Date().toISOString(),
   });
   const balance = await adjustBalance(chatId, usdAmount);
+  await creditPromoter(chatId, usdAmount);
   const user = await getUser(chatId);
   if (user) {
     await supabaseAdmin
@@ -1259,6 +1263,7 @@ async function verifyHash(chatId: number, hash: string) {
   }
 
   const balance = await adjustBalance(chatId, result.amount);
+  void creditPromoter(chatId, result.amount);
   await supabaseAdmin
     .from("bot_deposits")
     .update({ status: "confirmed" })
@@ -1313,6 +1318,7 @@ async function channelPreview(ctx: Ctx, ref: ProductRef, customText?: string) {
 }
 
 async function handleStep(chatId: number, text: string, state: { step: string | null; data: any }) {
+  if (await handlePromoStep(chatId, text, state)) return true;
   if (currentBot() === "sms" && await handleSmsStep(chatId,text,state.step)) return true;
   if (state.step === "await_channel_caption" && isAdmin(chatId)) {
     if (!text || text.length > 2000) {
@@ -1770,6 +1776,10 @@ async function routeUpdate(update: any): Promise<void> {
     const ref = await attachReferrer(chatId, startPayload);
     if (ref) await sendMessage(ref, `🎉 <b>New referral joined!</b>\nYou'll earn a reward on their first purchase.`);
   }
+  if (isNew && startPayload.startsWith("pr_")) {
+    const pr = await attachPromoter(chatId, startPayload);
+    if (pr) await sendMessage(pr, "📣 <b>New user joined via your promo link!</b>\nYou earn commission on their deposits for 30 days.");
+  }
   const deep = currentBot() === "sms" ? null : /^(p|tg|ext)_(\d+)$/.exec(startPayload);
   if (deep) await setState(chatId, "deep_product", { serviceId: Number(deep[2]), kind: deep[1] });
 
@@ -1867,6 +1877,7 @@ async function routeUpdate(update: any): Promise<void> {
       return showPopular(ctx);
     case "ref": {
       const view = await referralView(chatId);
+      if (await getPromoter(chatId)) view.keyboard.unshift([{ text: "📣 Promoter Dashboard", callback_data: "pm:me" }]);
       return respond(ctx, view.text, view.keyboard);
     }
     default:
@@ -1956,6 +1967,7 @@ async function handleCallback(query: any) {
         return showPopular(ctx);
       case "ref": {
         const view = await referralView(chatId);
+        if (await getPromoter(chatId)) view.keyboard.unshift([{ text: "📣 Promoter Dashboard", callback_data: "pm:me" }]);
         return respond(ctx, view.text, view.keyboard);
       }
       case "cpn": {
@@ -2098,6 +2110,8 @@ async function handleCallback(query: any) {
         if (a === "bn") return showBinance(ctx);
         if (a === "bkt") return askBkashTrx(ctx);
         return showFunds(ctx);
+      case "pm":
+        return handlePromoCallback(ctx, a ?? "", b);
       case "a": {
         if (!isAdmin(chatId)) return;
         return handleAdminCallback(ctx, a!, Number(b ?? 0));
@@ -2185,4 +2199,84 @@ async function handleAdminCallback(ctx: Ctx, action: string, page: number) {
   if (!view) return;
   const { text, keyboard } = await view();
   return respond(ctx, text, keyboard);
+}
+
+
+/* -------------------------------- promoters ------------------------------- */
+
+async function handlePromoCallback(ctx: Ctx, a: string, b?: string) {
+  const chatId = ctx.chatId;
+  const back = [[{ text: "⬅️ Promoters", callback_data: "pm:adm" }]];
+  if (a === "me") {
+    const v = await promoterView(chatId);
+    if (!v) return;
+    return respond(ctx, v.text, v.keyboard);
+  }
+  if (a === "wd") {
+    if (!(await getPromoter(chatId))) return;
+    const v = withdrawMethods();
+    return respond(ctx, v.text, v.keyboard);
+  }
+  if (a === "wm" && isPromoMethod(b)) {
+    if (!(await getPromoter(chatId))) return;
+    await setState(chatId, "await_pm_wd", { method: b });
+    const ask = b === "bkash" ? "your bKash number" : b === "binance" ? "your Binance Pay ID" : "your USDT BEP20 address";
+    return respond(ctx, `<b>💸 Withdraw</b>\n\nSend ${ask} 👇`, [[{ text: "✖️ Cancel", callback_data: "cancel" }]]);
+  }
+  if (!isAdmin(chatId)) return;
+  if (a === "adm") { const v = await adminPromoters(); return respond(ctx, v.text, v.keyboard); }
+  if (a === "add") {
+    await setState(chatId, "await_pm_add", {});
+    return respond(ctx, "<b>➕ Add Promoter</b>\n\nSend <code>TELEGRAM_ID</code> or <code>TELEGRAM_ID PERCENT</code> (e.g. <code>123456789 20</code>).", back);
+  }
+  if (a === "rm") {
+    await setState(chatId, "await_pm_rm", {});
+    return respond(ctx, "<b>🗑 Remove Promoter</b>\n\nSend the promoter's <code>TELEGRAM_ID</code>.", back);
+  }
+  if ((a === "ok" || a === "no") && b) {
+    const w = await decideWithdraw(b, a === "ok");
+    if (w) {
+      const net = Number(w.amount) - Number(w.fee);
+      await sendMessage(Number(w.telegram_id), a === "ok"
+        ? `<b>✅ Withdrawal sent</b>\n${DIVIDER}\n💸 <code>${usd(net)}</code> via ${w.method} (fee ${usd(Number(w.fee))}).`
+        : `<b>❌ Withdrawal rejected</b>\nYour <code>${usd(Number(w.amount))}</code> was returned to your promoter balance. Contact @${supportUsername()}.`);
+    }
+    const v = await adminPromoters();
+    return respond(ctx, (w ? "" : "⚠️ Already handled.\n\n") + v.text, v.keyboard);
+  }
+}
+
+async function handlePromoStep(chatId: number, text: string, state: { step: string | null; data: any }) {
+  const back = ik([[{ text: "⬅️ Promoters", callback_data: "pm:adm" }]]);
+  if (state.step === "await_pm_add" && isAdmin(chatId)) {
+    const [idRaw, pctRaw] = text.split(/\s+/);
+    const id = Number(idRaw);
+    if (!Number.isFinite(id) || id <= 0) { await sendMessage(chatId, "⚠️ Send a valid Telegram ID."); return true; }
+    const target = await getUser(id);
+    if (!target) { await sendMessage(chatId, "⚠️ This user hasn't started the bot yet."); return true; }
+    const pct = await addPromoter(id, Number(pctRaw));
+    await clearState(chatId);
+    await sendMessage(chatId, `✅ <code>${id}</code> is now a promoter at <b>${pct}%</b>.`, { reply_markup: back });
+    await sendMessage(id, `<b>🎉 You're now a ${BRAND.name} Promoter!</b>\n${DIVIDER}\nEarn <b>${pct}%</b> of every deposit from users who join with your link, for their first 30 days.`, { reply_markup: ik([[{ text: "📣 Open Promoter Dashboard", callback_data: "pm:me" }]]) });
+    return true;
+  }
+  if (state.step === "await_pm_rm" && isAdmin(chatId)) {
+    const id = Number(text.trim());
+    if (!Number.isFinite(id) || id <= 0) { await sendMessage(chatId, "⚠️ Send a valid Telegram ID."); return true; }
+    await removePromoter(id);
+    await clearState(chatId);
+    await sendMessage(chatId, `🗑 <code>${id}</code> is no longer a promoter.`, { reply_markup: back });
+    return true;
+  }
+  if (state.step === "await_pm_wd" && isPromoMethod(state.data.method)) {
+    const dest = text.trim();
+    if (dest.length < 4) { await sendMessage(chatId, "⚠️ Please send a valid account."); return true; }
+    const r = await requestWithdraw(chatId, state.data.method, dest);
+    await clearState(chatId);
+    if ("error" in r) { await sendMessage(chatId, `⚠️ ${r.error}`); return true; }
+    await sendMessage(chatId, `<b>⏳ Withdrawal requested</b>\n${DIVIDER}\n💸 <code>${money(r.amount - r.fee)}</code> via ${state.data.method}\nWe'll notify you once it's sent.`);
+    await notifyAdmins(`<b>💸 PROMOTER WITHDRAWAL</b>\n${DIVIDER}\n👤 <code>${chatId}</code> · ${BRAND.name}\n💰 <code>${usd(r.amount)}</code> − fee <code>${usd(r.fee)}</code>\n🏦 ${state.data.method} · <code>${escapeHtml(dest)}</code>\n\nOpen Admin → Referrals → Promoters to approve.`);
+    return true;
+  }
+  return false;
 }
