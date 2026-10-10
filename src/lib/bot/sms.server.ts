@@ -8,6 +8,7 @@ import { money, usd, DIVIDER, currencyScope } from "./views.server";
 import { isCurrency, supportUsername } from "./config.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
 import { rewardReferrer } from "./growth.server";
+import { FREE_COUNTRIES, freeNumbers, watchFree, freeChannelButton, syncFreeOtp } from "./free-otp.server";
 import { smsPrice, parseSmsStatus, canRefundSms, shouldCancelSms, smsWindowMs, SMS_RETRY_STATUSES, SMS_CANCEL_DELAY_MS } from "./sms-rules";
 
 export type SmsCtx = { chatId: number; messageId?: number; fromPhoto?: boolean };
@@ -45,6 +46,7 @@ export async function showSmsServers(ctx: SmsCtx) {
   await smsRespond(ctx, ["<b>📲 Buy Number</b>", DIVIDER, "Choose a server:", "", "⚡ <b>Server 1</b> · fast delivery", "🌍 <b>Server 2</b> · huge stock, all countries"].join("\n"), [
     [{ text: "⚡ Server 1", callback_data: "sms:s1:0", style: "primary" } as InlineKeyboard[number][number], { text: "🌍 Server 2", callback_data: "sms:s2:0", style: "success" } as InlineKeyboard[number][number]],
     [{ text: "💼 Premium Numbers · Subscription", callback_data: "sms:pm" }],
+    [{ text: "🆓 Free Numbers · Public OTP", callback_data: "sms:fr" }],
     ...home,
   ]);
 }
@@ -265,6 +267,14 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
     const status=await searchStep(o.id,"stop");
     return smsRespond(ctx,status==="refunded"?`<b>💰 Search Stopped</b>\n${DIVIDER}\n${money(Number(o.charge))} returned to your wallet.`:`<b>✖ Stopping Search</b>\n${DIVIDER}\nNo more search attempts will start.\nIf a request is already in progress, we must confirm its result before refunding.`,[[{text:"📥 View Order",callback_data:`sms:o:${o.id}`}],...home]);
   }
+  if(action==="fr") { const cs=Object.entries(FREE_COUNTRIES); const rows: InlineKeyboard=[]; for(let i=0;i<cs.length;i+=2) rows.push(cs.slice(i,i+2).map(([k,c])=>({text:`${c.flag} ${c.name}`,callback_data:`sms:fc:${k}`})));
+    return smsRespond(ctx,["<b>🆓 Free Numbers</b>",DIVIDER,"Public shared numbers · 100% free.","⚠️ Anyone can see codes sent to these numbers. Never use them for important accounts.","","🔐 OTP codes are posted <b>only</b> in our channel @freesmsotp.","","Choose a country:"].join("\n"),[...rows,...freeChannelButton,[{text:"⬅ Back",callback_data:"sms:srv"}],...home]); }
+  if(action==="fc") { const c=FREE_COUNTRIES[a??""]; if(!c) return; const list=await freeNumbers(a!).catch(()=>[]);
+    if(!list.length) return smsRespond(ctx,`<b>${c.flag} ${c.name}</b>\n${DIVIDER}\nNo free numbers right now. Try another country.`,[[{text:"⬅ Back",callback_data:"sms:fr"}],...home]);
+    return smsRespond(ctx,`<b>${c.flag} ${c.name} · Free Numbers</b>\n${DIVIDER}\nPick a number:`,[...list.map(n=>[{text:`📱 ${n.phone}`,callback_data:`sms:fn:${a}:${n.id}`}]),[{text:"⬅ Back",callback_data:"sms:fr"}],...home]); }
+  if(action==="fn") { const c=FREE_COUNTRIES[a??""]; const n=(await freeNumbers(a??"").catch(()=>[])).find(x=>x.id===b); if(!c||!n) return;
+    await watchFree(a!,n).catch(()=>null);
+    return smsRespond(ctx,["<b>✅ Free Number Ready</b>",DIVIDER,`${c.flag} Country · <b>${c.name}</b>`,`📱 Number · <code>${escapeHtml(n.phone)}</code>`,"",`📢 <b>Join @freesmsotp to get your OTP.</b>`,"New codes for this number are posted there for the next 30 minutes.","","⚠️ Public number — anyone can read its codes."].join("\n"),[[{text:"📋 Copy Number",copy_text:{text:n.phone}} as unknown as InlineKeyboard[number][number]],...freeChannelButton,[{text:"🔄 Another Number",callback_data:`sms:fc:${a}`}],...home]); }
   if(action==="pm") return showPremium(ctx);
   if(action==="pp") return showPremiumProduct(ctx,Number(a));
   if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");
@@ -305,6 +315,7 @@ export async function syncActiveSms() {
     const sent=await currencyScope.run({code},()=>sendMessage(o.telegram_id,o.otp?otpMessage(o as unknown as SmsOrder):`<b>💰 Refund Confirmed</b>\n${DIVIDER}\nService · <b>${escapeHtml(o.service_name)}</b>\nCountry · ${escapeHtml(o.country_name)}\n\nReturned · <b>${money(Number(o.refunded))}</b>\nThe amount is back in your wallet.\n\nOrder ID · <code>${o.id}</code>`,{reply_markup:ik([[{text:"📥 View Number",callback_data:`sms:o:${o.id}`}]] )}));
     await supabaseAdmin.from("bot3_sms_orders").update({notification_attempts:o.notification_attempts+1,...(sent?{notified_at:new Date().toISOString()}:{})}).eq("id",o.id);
   }
+  await syncFreeOtp().catch(()=>null);
   return {checked:data?.length??0};
 }
 function otpMessage(o: SmsOrder) {

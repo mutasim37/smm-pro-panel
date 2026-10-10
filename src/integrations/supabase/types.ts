@@ -880,6 +880,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bot3_free_seen: {
+        Row: {
+          created_at: string
+          key: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+        }
+        Relationships: []
+      }
+      bot3_free_watch: {
+        Row: {
+          country: string
+          created_at: string
+          expires_at: string
+          path: string
+          phone: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          expires_at: string
+          path: string
+          phone: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          expires_at?: string
+          path?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       bot3_orders: {
         Row: {
           category: string | null
