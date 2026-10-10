@@ -915,14 +915,19 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
     return;
   }
 
-  const usdAmount = Math.round((result.amount / currencies().BDT.rate) * 10000) / 10000;
+  await creditBkash(chatId, trxId, result.amount, data["pendingOrder"]);
+}
+
+async function creditBkash(chatId: number, trxIdRaw: string, amountBdt: number, pendingOrder?: any, ref?: string) {
+  const trxId = trxIdRaw.toUpperCase();
+  const usdAmount = Math.round((amountBdt / currencies().BDT.rate) * 10000) / 10000;
   await supabaseAdmin.from("bot_deposits").insert({
     telegram_id: chatId,
     amount_requested: usdAmount,
     amount_credited: usdAmount,
-    tx_hash: `bkash:${trxId.toUpperCase()}`,
+    tx_hash: `bkash:${trxId}`,
     status: "confirmed",
-    note: `bkash ৳${result.amount}`,
+    note: `bkash ৳${amountBdt}${ref ? ` ref ${ref}` : ""}`,
     confirmed_at: new Date().toISOString(),
   });
   const balance = await adjustBalance(chatId, usdAmount);
@@ -940,9 +945,9 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
     [
       "<b>✅ bKash PAYMENT CONFIRMED</b>",
       DIVIDER,
-      `📱 <b>Received</b> · <code>৳${result.amount.toFixed(2)}</code>`,
+      `📱 <b>Received</b> · <code>৳${amountBdt.toFixed(2)}</code>`,
       `💰 <b>New balance</b> · <code>${money(balance)}</code>`,
-      `🧾 <code>${trxId.toUpperCase()}</code>`,
+      `🧾 <code>${trxId}</code>${ref ? ` · Ref <code>${ref}</code>` : ""}`,
       DIVIDER,
       "Thank you — your funds are ready to use.",
     ].join("\n"),
@@ -950,15 +955,171 @@ async function verifyBkash(chatId: number, trxId: string, data: Record<string, a
   );
   await notifyAdmins(
     [
-      "<b>💰 NEW bKash DEPOSIT</b>",
+      `<b>💰 NEW bKash DEPOSIT${ref ? " · SUPER MODE" : ""}</b>`,
       DIVIDER,
-      `👤 <code>${chatId}</code> ${user?.username ? "@" + escapeHtml(user.username) : ""}`,
-      `📱 <code>৳${result.amount.toFixed(2)}</code> → <code>$${usdAmount.toFixed(4)}</code>`,
-      `🧾 <code>${trxId.toUpperCase()}</code>`,
+      `👤 <code>${chatId}</code> ${user?.username ? "@" + escapeHtml(user.username) : ""} · ${BRAND.name}`,
+      `📱 <code>৳${amountBdt.toFixed(2)}</code> → <code>$${usdAmount.toFixed(4)}</code>`,
+      `🧾 <code>${trxId}</code>${ref ? ` · Ref <code>${ref}</code>` : ""}`,
     ].join("\n"),
     EFFECTS.fire,
   );
-  if (data["pendingOrder"]) await completePending(chatId, data["pendingOrder"]);
+  if (pendingOrder) await completePending(chatId, pendingOrder);
+}
+
+/* ----------------------- bKash Super Mode (reference) ---------------------- */
+
+async function showBkashModes(ctx: Ctx, pendingOrder?: any) {
+  await setState(ctx.chatId, null, pendingOrder ? { pendingOrder } : {});
+  await respond(
+    ctx,
+    [
+      "<b>📱 bKash Deposit</b>",
+      DIVIDER,
+      "Choose how you want to pay:",
+      "",
+      "⚡ <b>Super Mode</b> — no TrxID, no amount needed. Pay with your reference and your balance is added automatically.",
+      "",
+      "🧾 <b>Normal Mode</b> — enter amount, pay, then submit your TrxID (works for any MFS transfer).",
+    ].join("\n"),
+    [
+      [{ text: "⚡ Without TrxID · Super Mode", callback_data: "dep:bks" }],
+      [{ text: "🧾 With TrxID · Normal Mode", callback_data: "dep:bkn" }],
+      [{ text: "✖️ Cancel", callback_data: "cancel" }],
+    ],
+  );
+}
+
+async function askBkashSender(ctx: Ctx) {
+  const state = await getState(ctx.chatId);
+  await setState(ctx.chatId, "await_bk_sender", state.data["pendingOrder"] ? { pendingOrder: state.data["pendingOrder"] } : {});
+  await respond(
+    ctx,
+    [
+      "<b>⚡ bKash Super Mode</b>",
+      DIVIDER,
+      "Send <b>your bKash number</b> — the number you will send money <b>from</b>.",
+      "",
+      "<blockquote>Example: <code>01712345678</code></blockquote>",
+    ].join("\n"),
+    [[{ text: "✖️ Cancel", callback_data: "cancel" }]],
+  );
+}
+
+async function showBkashRefWarning(chatId: number, sender: string, pendingOrder?: any) {
+  // Retire any older pending reference for this user on this bot.
+  await supabaseAdmin.from("bot_bkash_refs").update({ status: "replaced" }).eq("bot", currentBot()).eq("telegram_id", chatId).eq("status", "pending");
+  let ref = generateBkashRef();
+  for (let i = 0; i < 3; i++) {
+    const { error } = await supabaseAdmin.from("bot_bkash_refs").insert({ ref, bot: currentBot(), telegram_id: chatId, sender, pending_order: pendingOrder ?? null });
+    if (!error) break;
+    ref = generateBkashRef();
+  }
+  await setState(chatId, "await_bk_ref", { ref, sender, ...(pendingOrder ? { pendingOrder } : {}) });
+  await sendMessage(
+    chatId,
+    [
+      "<b>⚠️⚠️ IMPORTANT — READ FIRST ⚠️⚠️</b>",
+      DIVIDER,
+      `📲 <b>Your number</b> · <code>${sender}</code>`,
+      `🔖 <b>Your reference</b> · <code>${ref}</code>`,
+      "",
+      `⚠️ <b>YOU MUST WRITE <u>${ref}</u> IN THE bKash REFERENCE FIELD.</b>`,
+      "⚠️ <b>Without this reference your balance will NOT be added.</b>",
+      `⚠️ Send only from <code>${sender}</code>.`,
+      DIVIDER,
+      "<blockquote>Send any amount — whatever you send is added to your wallet automatically.</blockquote>",
+    ].join("\n"),
+    {
+      reply_markup: ik([
+        [{ text: "✅ I Confirm", callback_data: "dep:bkc" }],
+        [{ text: "✖️ Cancel", callback_data: "cancel" }],
+      ]),
+    },
+  );
+}
+
+function bkashWaitingText(ref: string, sender: string, frame = 0): string {
+  const bars = ["[■□□□□□□□□□]", "[■■■□□□□□□□]", "[■■■■■□□□□□]", "[■■■■■■■□□□]", "[■■■■■■■■■□]"];
+  return [
+    "<b>📱 bKash · SUPER MODE</b>",
+    DIVIDER,
+    "📲 <b>Send Money to:</b>",
+    `<code>${bkashNumber()}</code>`,
+    `🔖 <b>Reference</b> · <code>${ref}</code>`,
+    `👤 <b>From</b> · <code>${sender}</code>`,
+    DIVIDER,
+    `⚠️ <b>Reference <u>${ref}</u> is mandatory.</b>`,
+    "",
+    `🔍 <b>Finding your payment message…</b>`,
+    `<code>${bars[frame % bars.length]}</code>`,
+    "<i>Your balance is added automatically as soon as the payment arrives.</i>",
+  ].join("\n");
+}
+
+function bkashWaitingKeyboard(ref: string) {
+  return ik([
+    [{ text: "📋 Copy Number", copy_text: { text: bkashNumber() } } as any, { text: "🔖 Copy Reference", copy_text: { text: ref } } as any],
+    [{ text: "🔄 Recheck", callback_data: "dep:bkr" }],
+    [{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }],
+  ]);
+}
+
+async function showBkashRefWaiting(ctx: Ctx) {
+  const state = await getState(ctx.chatId);
+  const ref = String(state.data["ref"] ?? "");
+  const sender = String(state.data["sender"] ?? "");
+  if (!ref) return askBkashSender(ctx);
+  const msg = (await sendMessage(ctx.chatId, bkashWaitingText(ref, sender, 0), { reply_markup: bkashWaitingKeyboard(ref) })) as any;
+  const mid: number | undefined = msg?.message_id;
+  if (mid) await supabaseAdmin.from("bot_bkash_refs").update({ message_id: mid }).eq("ref", ref);
+  await setState(ctx.chatId, "await_bk_ref", { ...state.data, confirmed: true });
+  // Short "finding" animation.
+  if (mid) for (let i = 1; i < 5; i++) {
+    await sleep(600);
+    await tg("editMessageText", { chat_id: ctx.chatId, message_id: mid, text: bkashWaitingText(ref, sender, i), parse_mode: "HTML", reply_markup: bkashWaitingKeyboard(ref) }).catch(() => {});
+  }
+}
+
+async function recheckBkashRef(ctx: Ctx) {
+  const { data: row } = await supabaseAdmin
+    .from("bot_bkash_refs")
+    .select("*")
+    .eq("bot", currentBot())
+    .eq("telegram_id", ctx.chatId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!row) {
+    await sendMessage(ctx.chatId, "ℹ️ No pending Super Mode payment. Start again from <b>Add Funds → bKash</b>.");
+    return;
+  }
+  const claim = await withChecking(ctx.chatId, "🔍 FINDING YOUR PAYMENT…", () => findBkashRefPayment(row.ref, row.sender, row.created_at));
+  if (!claim) {
+    await sendMessage(ctx.chatId, [
+      "⏳ <b>Payment not received yet.</b>",
+      DIVIDER,
+      `Make sure you sent from <code>${escapeHtml(row.sender)}</code> with reference <code>${row.ref}</code>.`,
+      "It is added automatically the moment it arrives — or tap Recheck again.",
+    ].join("\n"), { reply_markup: bkashWaitingKeyboard(row.ref) });
+    return;
+  }
+  if (claim.message_id) await tg("deleteMessage", { chat_id: ctx.chatId, message_id: claim.message_id }).catch(() => {});
+  await creditBkash(ctx.chatId, claim.trxId, claim.amount, claim.pending_order ?? undefined, claim.ref);
+}
+
+/** Called from the bKash SMS webhook once a reference payment has been atomically claimed. */
+export async function autoCreditBkashRef(claim: RefClaim) {
+  const bot = (["smm", "tg", "sms"].includes(claim.bot) ? claim.bot : "smm") as BotId;
+  return runAsBot(bot, async () => {
+    await loadBotAccess();
+    const { data: cur } = await supabaseAdmin.from("bot_users").select("currency").eq("telegram_id", claim.telegram_id).maybeSingle();
+    const code = isCurrency(cur?.currency) ? cur.currency : "USD";
+    return currencyScope.run({ code } as any, async () => {
+      if (claim.message_id) await tg("deleteMessage", { chat_id: claim.telegram_id, message_id: claim.message_id }).catch(() => {});
+      await creditBkash(claim.telegram_id, claim.trxId, claim.amount, claim.pending_order ?? undefined, claim.ref);
+    });
+  });
 }
 
 async function completePending(chatId: number, pending: any) {
