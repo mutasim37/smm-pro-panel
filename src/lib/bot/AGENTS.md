@@ -7,3 +7,4 @@
 - Frrr SMS supplier is 5SIM behind the `grizzly.server.ts` adapter, which translates 5SIM REST into handler-style status strings; keeps the audited reservation/refund logic unchanged.
 - Frrr SMS has two servers: Server 1 = Grizzly (`grizzlysms.server.ts`, provider_id stored as `g:<id>`, `sms_g_multiplier`) and Server 2 = 5SIM (`sms_multiplier`); server is carried in callback suffix and checkout state so polling/refunds hit the right supplier.
 - SMS prices = supplier cost × admin `sms_multiplier` (default 3); the Telegram Mini App at `/sms` verifies `initData` with the SMS bot token before showing prices or sending a quote.
+- Free SMS numbers are scraped from receivesms.co in `free-otp.server.ts`; only extracted OTP codes (never full SMS text) are posted to @freesmsotp, never in the bot; 30-minute watches arm the existing SMS minute job.
