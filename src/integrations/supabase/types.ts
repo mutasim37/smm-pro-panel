@@ -406,6 +406,78 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_promo_withdrawals: {
+        Row: {
+          amount: number
+          bot: string
+          created_at: string
+          decided_at: string | null
+          destination: string
+          fee: number
+          id: string
+          method: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          amount: number
+          bot: string
+          created_at?: string
+          decided_at?: string | null
+          destination: string
+          fee: number
+          id?: string
+          method: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          amount?: number
+          bot?: string
+          created_at?: string
+          decided_at?: string | null
+          destination?: string
+          fee?: number
+          id?: string
+          method?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: []
+      }
+      bot_promoters: {
+        Row: {
+          active: boolean
+          balance: number
+          bot: string
+          created_at: string
+          pct: number
+          telegram_id: number
+          total_earned: number
+          total_withdrawn: number
+        }
+        Insert: {
+          active?: boolean
+          balance?: number
+          bot: string
+          created_at?: string
+          pct: number
+          telegram_id: number
+          total_earned?: number
+          total_withdrawn?: number
+        }
+        Update: {
+          active?: boolean
+          balance?: number
+          bot?: string
+          created_at?: string
+          pct?: number
+          telegram_id?: number
+          total_earned?: number
+          total_withdrawn?: number
+        }
+        Relationships: []
+      }
       bot_secrets: {
         Row: {
           name: string
@@ -549,6 +621,8 @@ export type Database = {
           language_code: string | null
           last_name: string | null
           last_seen_at: string
+          promoted_at: string | null
+          promoted_by: number | null
           ref_earned: number
           ref_rewarded: boolean
           referred_by: number | null
@@ -567,6 +641,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -585,6 +661,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -816,6 +894,8 @@ export type Database = {
           language_code: string | null
           last_name: string | null
           last_seen_at: string
+          promoted_at: string | null
+          promoted_by: number | null
           ref_earned: number
           ref_rewarded: boolean
           referred_by: number | null
@@ -834,6 +914,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -852,6 +934,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -1248,6 +1332,8 @@ export type Database = {
           language_code: string | null
           last_name: string | null
           last_seen_at: string
+          promoted_at: string | null
+          promoted_by: number | null
           ref_earned: number
           ref_rewarded: boolean
           referred_by: number | null
@@ -1266,6 +1352,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -1284,6 +1372,8 @@ export type Database = {
           language_code?: string | null
           last_name?: string | null
           last_seen_at?: string
+          promoted_at?: string | null
+          promoted_by?: number | null
           ref_earned?: number
           ref_rewarded?: boolean
           referred_by?: number | null
@@ -1324,6 +1414,21 @@ export type Database = {
           ref: string
           telegram_id: number
         }[]
+      }
+      bot_promo_credit: {
+        Args: { _amount: number; _bot: string; _promoter: number }
+        Returns: boolean
+      }
+      bot_promo_reject: { Args: { _id: string }; Returns: boolean }
+      bot_promo_withdraw: {
+        Args: {
+          _bot: string
+          _dest: string
+          _fee: number
+          _method: string
+          _tg: number
+        }
+        Returns: string
       }
       bot_redeem_coupon: {
         Args: { _bot: string; _code: string; _telegram_id: number }

@@ -148,6 +148,20 @@
       "when": 1791624808619,
       "tag": "0020_free_otp_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791636616107,
+      "tag": "0021_promoters",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791636728160,
+      "tag": "0022_promo_withdraw_fix",
+      "breakpoints": true
     }
   ]
 }
