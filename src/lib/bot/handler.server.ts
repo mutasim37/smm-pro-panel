@@ -195,6 +195,7 @@ async function showPlatforms(ctx: Ctx) {
   ].join("\n");
 
   await respond(ctx, text, [
+    [{ text: "🌐 Select on Mini Web", web_app: { url: "https://smm-pro-panel.lovable.app/smm" } } as any],
     [{ text: "🔍 Search by Code", callback_data: "find" }, { text: "🔥 Popular", callback_data: "pop" }],
     [{ text: "🧩 More Products", callback_data: "other" }],
     ...platformKeyboard(counts),
@@ -2286,4 +2287,10 @@ async function handlePromoStep(chatId: number, text: string, state: { step: stri
     return true;
   }
   return false;
+}
+
+/** Mini Web selection: opens the full product screen in the chat. */
+export async function openMiniService(chatId: number, serviceId: number) {
+  await clearState(chatId);
+  return showService({ chatId }, serviceId);
 }
