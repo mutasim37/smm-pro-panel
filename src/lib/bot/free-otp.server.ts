@@ -60,13 +60,39 @@ export async function watchFree(cc: string, n: FreeNumber) {
   await supabaseAdmin.from("bot3_free_watch").upsert({ phone: n.phone, country: cc, path: n.path, expires_at: new Date(Date.now() + 30 * 60000).toISOString() });
 }
 
+/** 24/7: keep every listed free number of every country under watch (rotating 2 countries per run). */
+async function autoWatchAll() {
+  const ccs = Object.keys(FREE_COUNTRIES);
+  const slot = Math.floor(Date.now() / 60000);
+  const pick = [ccs[(slot * 2) % ccs.length], ccs[(slot * 2 + 1) % ccs.length]].filter(Boolean) as string[];
+  const { data: cur } = await supabaseAdmin.from("bot3_free_watch").select("phone");
+  const known = new Set((cur ?? []).map((w) => w.phone));
+  for (const cc of pick) {
+    const list = await freeNumbers(cc).catch(() => [] as FreeNumber[]);
+    for (const n of list) {
+      if (!known.has(n.phone)) await watchFree(cc, n).catch(() => null);
+    }
+    // Extend every number of this country for another 30 minutes so the scan never stops.
+    if (list.length) await supabaseAdmin.from("bot3_free_watch").update({ expires_at: new Date(Date.now() + 30 * 60000).toISOString() }).in("phone", list.map((n) => n.phone));
+  }
+}
+
+async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) await fn(items[i++] as T).catch(() => null); }));
+}
+
 export async function syncFreeOtp() {
   const now = new Date().toISOString();
+  await autoWatchAll().catch(() => null);
   await supabaseAdmin.from("bot3_free_watch").delete().lt("expires_at", now);
   await supabaseAdmin.from("bot3_free_seen").delete().lt("created_at", new Date(Date.now() - 3 * 86400000).toISOString());
-  const { data } = await supabaseAdmin.from("bot3_free_watch").select("*").limit(25);
+  const { data: all } = await supabaseAdmin.from("bot3_free_watch").select("*").order("phone").limit(200);
+  // Scan half the numbers each minute (every number at least every 2 minutes; inbox keeps the last 20 SMS so nothing is missed).
+  const half = Math.floor(Date.now() / 60000) % 2;
+  const data = (all ?? []).filter((_, i) => i % 2 === half);
   let posted = 0;
-  for (const w of data ?? []) {
+  await pool(data, 8, async (w) => {
     const msgs = parseInbox(await get(w.path).catch(() => "")).reverse();
     for (const o of msgs) {
       const { error } = await supabaseAdmin.from("bot3_free_seen").insert({ key: key(w.phone, o) });
@@ -82,8 +108,8 @@ export async function syncFreeOtp() {
       ].join("\n") }));
       posted++;
     }
-  }
-  return { watched: data?.length ?? 0, posted };
+  });
+  return { watched: data.length, posted };
 }
 
 export const freeChannelButton: InlineKeyboard = [[{ text: "📢 Join @freesmsotp to get OTP", url: "https://t.me/freesmsotp" }]];
