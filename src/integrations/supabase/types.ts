@@ -83,6 +83,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_bkash_refs: {
+        Row: {
+          amount_bdt: number | null
+          bot: string
+          created_at: string
+          expires_at: string
+          message_id: number | null
+          pending_order: Json | null
+          ref: string
+          sender: string
+          status: string
+          telegram_id: number
+          trx_id: string | null
+        }
+        Insert: {
+          amount_bdt?: number | null
+          bot: string
+          created_at?: string
+          expires_at?: string
+          message_id?: number | null
+          pending_order?: Json | null
+          ref: string
+          sender: string
+          status?: string
+          telegram_id: number
+          trx_id?: string | null
+        }
+        Update: {
+          amount_bdt?: number | null
+          bot?: string
+          created_at?: string
+          expires_at?: string
+          message_id?: number | null
+          pending_order?: Json | null
+          ref?: string
+          sender?: string
+          status?: string
+          telegram_id?: number
+          trx_id?: string | null
+        }
+        Relationships: []
+      }
       bot_bkash_sms: {
         Row: {
           amount_bdt: number
@@ -1232,6 +1274,17 @@ export type Database = {
           _user: number
         }
         Returns: string
+      }
+      bot_claim_bkash_ref: {
+        Args: { _ref: string; _sender: string; _trx: string }
+        Returns: {
+          amount: number
+          bot: string
+          message_id: number
+          pending_order: Json
+          ref: string
+          telegram_id: number
+        }[]
       }
       bot_redeem_coupon: {
         Args: { _bot: string; _code: string; _telegram_id: number }

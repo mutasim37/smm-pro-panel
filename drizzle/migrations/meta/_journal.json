@@ -127,6 +127,13 @@
       "when": 1791563039993,
       "tag": "0017_sms_cancel_retry_and_safe_search_stop",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791622227155,
+      "tag": "0018_bkash_super_mode",
+      "breakpoints": true
     }
   ]
 }
