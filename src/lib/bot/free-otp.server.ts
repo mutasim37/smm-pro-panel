@@ -97,10 +97,11 @@ export async function syncFreeOtp() {
   await pool(data, 8, async (w) => {
     const msgs = parseInbox(await get(w.path).catch(() => "")).reverse();
     for (const o of msgs) {
-      const { error } = await supabaseAdmin.from("bot3_free_seen").insert({ key: key(w.phone, o) });
+      const k = key(w.phone, o);
+      const { error } = await supabaseAdmin.from("bot3_free_seen").insert({ key: k });
       if (error) continue; // already posted
       const c = FREE_COUNTRIES[w.country];
-      await runAsBot("sms", () => tg("sendMessage", { chat_id: FREE_CHANNEL, parse_mode: "HTML", text: [
+      const text = [
         "<b>🆕 New SMS Received</b>", "━━━━━━━━━━━━━━",
         `${c?.flag ?? "🌍"} Country · <b>${escapeHtml(c?.name ?? w.country)}</b>`,
         `📱 Number · <code>${escapeHtml(w.phone)}</code>`,
@@ -108,7 +109,20 @@ export async function syncFreeOtp() {
         ...(o.code ? [`🔐 OTP · <code>${escapeHtml(o.code)}</code>`, ""] : []),
         ...(o.text ? ["💬 <b>Full Message</b>", `<blockquote>${escapeHtml(o.text)}</blockquote>`, ""] : []),
         "<i>Public shared number · tap to copy</i>",
-      ].join("\n") }));
+      ].join("\n");
+      // Retry on Telegram rate limits; if the post ultimately fails, un-mark the
+      // message so the next scan tries again instead of losing it forever.
+      let sent = false;
+      for (let attempt = 0; attempt < 3 && !sent; attempt++) {
+        try {
+          await runAsBot("sms", () => tg("sendMessage", { chat_id: FREE_CHANNEL, parse_mode: "HTML", text }));
+          sent = true;
+        } catch (e) {
+          const wait = /retry after (\d+)/i.exec(String(e))?.[1];
+          await new Promise((r) => setTimeout(r, wait ? Math.min(Number(wait) * 1000, 40000) : 2000 * (attempt + 1)));
+        }
+      }
+      if (!sent) { await supabaseAdmin.from("bot3_free_seen").delete().eq("key", k); continue; }
       posted++;
     }
   });
