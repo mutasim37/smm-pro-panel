@@ -8,10 +8,10 @@ test("bKash SMS yields payer number and reference", () => {
 });
 
 test("Super Mode reference is 8 characters", () => {
-  expect(generateBkashRef()).toMatch(/^[A-Z2-9]{8}$/);
+  expect(/^[A-Z2-9]{8}$/.test(generateBkashRef())).toBe(true);
 });
 
 test("payer number must be a Bangladeshi mobile", () => {
   expect(normalizeBdPhone("+8801756650526")).toBe("01756650526");
-  expect(normalizeBdPhone("12345")).toBeNull();
+  expect(normalizeBdPhone("12345")).toBe(null);
 });
