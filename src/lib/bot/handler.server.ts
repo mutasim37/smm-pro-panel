@@ -32,7 +32,7 @@ import { currentBot, runAsBot, type BotId } from "./scope.server";
 import { adminCoupons, checkCoupon, COUPON_HELP, couponCard, createCoupon, disableCoupon, redeemCoupon, releaseCoupon } from "./coupons.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
-import { addPromoter, adminPromoters, attachPromoter, creditPromoter, decideWithdraw, getPromoter, promoterView, removePromoter, requestWithdraw, withdrawMethods } from "./promoter.server";
+import { addPromoter, adminPromoters, attachPromoter, creditPromoter, decideWithdraw, getPromoter, promoterView, moveToWallet, removePromoter, requestWithdraw, withdrawMethods } from "./promoter.server";
 import { isPromoMethod } from "./promoter-rules";
 import { adminChannel, adminPopular, adminReferrals, attachReferrer, isJoined, joinGate, popularIds, productLink, referralView, rewardReferrer, setForceChannel, shareUrl, togglePin } from "./growth.server";
 import { addPackageFromText, adminExtStore, buyExtension, deletePackage, downloadExtension, listPackages, priceUsd, showExtGuide, showExtPackage, showExtStore, showMyLicenses, startExtAdd } from "./ext.server";
@@ -2217,6 +2217,13 @@ async function handlePromoCallback(ctx: Ctx, a: string, b?: string) {
     const v = withdrawMethods();
     return respond(ctx, v.text, v.keyboard);
   }
+  if (a === "tw") {
+    if (!(await getPromoter(chatId))) return;
+    const moved = await moveToWallet(chatId);
+    const v = await promoterView(chatId);
+    const note = moved > 0 ? `✅ <b>${money(moved)}</b> moved to your wallet — use it to buy products.\n\n` : "⚠️ No earnings to move.\n\n";
+    return respond(ctx, note + (v?.text ?? ""), v?.keyboard ?? []);
+  }
   if (a === "wm" && isPromoMethod(b)) {
     if (!(await getPromoter(chatId))) return;
     await setState(chatId, "await_pm_wd", { method: b });
@@ -2231,7 +2238,7 @@ async function handlePromoCallback(ctx: Ctx, a: string, b?: string) {
   }
   if (a === "rm") {
     await setState(chatId, "await_pm_rm", {});
-    return respond(ctx, "<b>🗑 Remove Promoter</b>\n\nSend the promoter's <code>TELEGRAM_ID</code>.", back);
+    return respond(ctx, "<b>🚫 Disable Promoter</b>\n\nSend the promoter's <code>TELEGRAM_ID</code>.", back);
   }
   if ((a === "ok" || a === "no") && b) {
     const w = await decideWithdraw(b, a === "ok");
@@ -2265,7 +2272,7 @@ async function handlePromoStep(chatId: number, text: string, state: { step: stri
     if (!Number.isFinite(id) || id <= 0) { await sendMessage(chatId, "⚠️ Send a valid Telegram ID."); return true; }
     await removePromoter(id);
     await clearState(chatId);
-    await sendMessage(chatId, `🗑 <code>${id}</code> is no longer a promoter.`, { reply_markup: back });
+    await sendMessage(chatId, `🗑 <code>${id}</code> promoter access disabled. Their link no longer earns and they cannot withdraw.`, { reply_markup: back });
     return true;
   }
   if (state.step === "await_pm_wd" && isPromoMethod(state.data.method)) {

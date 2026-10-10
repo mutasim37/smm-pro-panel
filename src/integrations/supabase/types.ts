@@ -1420,6 +1420,10 @@ export type Database = {
         Returns: boolean
       }
       bot_promo_reject: { Args: { _id: string }; Returns: boolean }
+      bot_promo_to_wallet: {
+        Args: { _bot: string; _tg: number }
+        Returns: number
+      }
       bot_promo_withdraw: {
         Args: {
           _bot: string
