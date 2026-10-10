@@ -134,6 +134,13 @@
       "when": 1791622227155,
       "tag": "0018_bkash_super_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791624698621,
+      "tag": "0019_free_otp",
+      "breakpoints": true
     }
   ]
 }
