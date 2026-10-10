@@ -13,9 +13,9 @@ export async function bkashSecret(): Promise<string | null> {
   return (data?.value as string | undefined) ?? null;
 }
 
-export type ParsedSms = { trxId: string; amount: number };
+export type ParsedSms = { trxId: string; amount: number; from: string | null; ref: string | null };
 
-/** Extracts TrxID + received amount from an official bKash SMS. */
+/** Extracts TrxID + received amount (+ payer number and reference) from an official bKash SMS. */
 export function parseBkashSms(body: string): ParsedSms | null {
   const text = body.replace(/\s+/g, " ");
   const trx = text.match(/TrxID\s*[:#]?\s*([A-Z0-9]{8,12})/i);
@@ -27,7 +27,49 @@ export function parseBkashSms(body: string): ParsedSms | null {
   if (!/received|cash\s*in/i.test(text)) return null;
   const amount = Number(amt[1].replace(/,/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  return { trxId: trx[1].toUpperCase(), amount };
+  const from = text.match(/from\s*(\+?\d[\d\s-]{9,15}\d)/i)?.[1]?.replace(/\D/g, "") ?? null;
+  const ref = text.match(/\bRef(?:erence)?\.?\s*[:#]?\s*([A-Za-z0-9]{3,20})\b/i)?.[1]?.toUpperCase() ?? null;
+  return { trxId: trx[1].toUpperCase(), amount, from, ref };
+}
+
+/** 8-character payment reference without easily confused characters. */
+export function generateBkashRef(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
+export function normalizeBdPhone(value: string): string | null {
+  const d = value.replace(/\D/g, "").replace(/^880/, "0").replace(/^88/, "");
+  return /^01[3-9]\d{8}$/.test(d) ? d : null;
+}
+
+export type RefClaim = { bot: string; telegram_id: number; amount: number; ref: string; message_id: number | null; pending_order: any; trxId: string };
+
+/** Atomically matches a forwarded SMS (by TrxID) to a pending reference + payer number. */
+export async function claimBkashRef(trxId: string, ref: string, sender: string): Promise<RefClaim | null> {
+  const { data } = await (supabaseAdmin.rpc as any)("bot_claim_bkash_ref", { _trx: trxId, _ref: ref, _sender: sender });
+  const row = Array.isArray(data) ? data[0] : null;
+  return row ? { ...row, amount: Number(row.amount), trxId: trxId.toUpperCase() } : null;
+}
+
+/** Recheck: scan recent unclaimed SMS for this reference. */
+export async function findBkashRefPayment(ref: string, sender: string, since: string): Promise<RefClaim | null> {
+  const { data } = await supabaseAdmin
+    .from("bot_bkash_sms")
+    .select("trx_id, body")
+    .is("claimed_by", null)
+    .gte("received_at", new Date(new Date(since).getTime() - 10 * 60_000).toISOString())
+    .ilike("body", `%${ref}%`)
+    .limit(10);
+  for (const s of data ?? []) {
+    const p = parseBkashSms(s.body);
+    if (p?.ref === ref && p.from) {
+      const c = await claimBkashRef(s.trx_id, ref, p.from);
+      if (c) return c;
+    }
+  }
+  return null;
 }
 
 export function looksLikeTrxId(value: string): boolean {
