@@ -46,7 +46,6 @@ export async function showSmsServers(ctx: SmsCtx) {
   await smsRespond(ctx, ["<b>📲 Buy Number</b>", DIVIDER, "Choose a server:", "", "⚡ <b>Server 1</b> · fast delivery", "🌍 <b>Server 2</b> · huge stock, all countries"].join("\n"), [
     [{ text: "⚡ Server 1", callback_data: "sms:s1:0", style: "primary" } as InlineKeyboard[number][number], { text: "🌍 Server 2", callback_data: "sms:s2:0", style: "success" } as InlineKeyboard[number][number]],
     [{ text: "💼 Premium Numbers · Subscription", callback_data: "sms:pm" }],
-    [{ text: "🆓 Free Numbers · Public OTP", callback_data: "sms:fr" }],
     ...home,
   ]);
 }
@@ -268,13 +267,13 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
     return smsRespond(ctx,status==="refunded"?`<b>💰 Search Stopped</b>\n${DIVIDER}\n${money(Number(o.charge))} returned to your wallet.`:`<b>✖ Stopping Search</b>\n${DIVIDER}\nNo more search attempts will start.\nIf a request is already in progress, we must confirm its result before refunding.`,[[{text:"📥 View Order",callback_data:`sms:o:${o.id}`}],...home]);
   }
   if(action==="fr") { const cs=Object.entries(FREE_COUNTRIES); const rows: InlineKeyboard=[]; for(let i=0;i<cs.length;i+=2) rows.push(cs.slice(i,i+2).map(([k,c])=>({text:`${c.flag} ${c.name}`,callback_data:`sms:fc:${k}`})));
-    return smsRespond(ctx,["<b>🆓 Free Numbers</b>",DIVIDER,"Public shared numbers · 100% free.","⚠️ Anyone can see codes sent to these numbers. Never use them for important accounts.","","🔐 OTP codes are posted <b>only</b> in our channel @freesmsotp.","","Choose a country:"].join("\n"),[...rows,...freeChannelButton,[{text:"⬅ Back",callback_data:"sms:srv"}],...home]); }
+    return smsRespond(ctx,["<b>🆓 Free Numbers</b>",DIVIDER,"🌍 <b>Step 1 of 2</b> · Choose a country","","✅ 100% free · public shared numbers","📢 Codes are posted only in @freesmsotp","","<blockquote>⚠️ Big apps (TikTok, WhatsApp, Telegram) often block public numbers, so their code may never arrive. For guaranteed OTP use 📲 Buy Number.</blockquote>"].join("\n"),[...rows,...freeChannelButton,...home]); }
   if(action==="fc") { const c=FREE_COUNTRIES[a??""]; if(!c) return; const list=await freeNumbers(a!).catch(()=>[]);
     if(!list.length) return smsRespond(ctx,`<b>${c.flag} ${c.name}</b>\n${DIVIDER}\nNo free numbers right now. Try another country.`,[[{text:"⬅ Back",callback_data:"sms:fr"}],...home]);
-    return smsRespond(ctx,`<b>${c.flag} ${c.name} · Free Numbers</b>\n${DIVIDER}\nPick a number:`,[...list.map(n=>[{text:`📱 ${n.phone}`,callback_data:`sms:fn:${a}:${n.id}`}]),[{text:"⬅ Back",callback_data:"sms:fr"}],...home]); }
+    return smsRespond(ctx,`<b>${c.flag} ${c.name} · Free Numbers</b>\n${DIVIDER}\n📱 <b>Step 2 of 2</b> · Pick a number\n🟢 ${list.length} numbers online now`,[...list.map(n=>[{text:`🟢 ${n.phone}`,callback_data:`sms:fn:${a}:${n.id}`}]),[{text:"⬅ Back",callback_data:"sms:fr"}],...home]); }
   if(action==="fn") { const c=FREE_COUNTRIES[a??""]; const n=(await freeNumbers(a??"").catch(()=>[])).find(x=>x.id===b); if(!c||!n) return;
     await watchFree(a!,n).catch(()=>null);
-    return smsRespond(ctx,["<b>✅ Free Number Ready</b>",DIVIDER,`${c.flag} Country · <b>${c.name}</b>`,`📱 Number · <code>${escapeHtml(n.phone)}</code>`,"",`📢 <b>Join @freesmsotp to get your OTP.</b>`,"New codes for this number are posted there for the next 30 minutes.","","⚠️ Public number — anyone can read its codes."].join("\n"),[[{text:"📋 Copy Number",copy_text:{text:n.phone}} as unknown as InlineKeyboard[number][number]],...freeChannelButton,[{text:"🔄 Another Number",callback_data:`sms:fc:${a}`}],...home]); }
+    return smsRespond(ctx,["<b>✅ Free Number Ready</b>",DIVIDER,`${c.flag} Country · <b>${c.name}</b>`,`📱 Number · <code>${escapeHtml(n.phone)}</code>`,`⏱ Live watch · <b>30 minutes</b>`,DIVIDER,"<b>How to get your code</b>","1️⃣ Copy the number and request the code","2️⃣ Open @freesmsotp — new codes appear within ~1 minute","3️⃣ No code in 3–5 min? The app blocked it — try another number","","<blockquote>⚠️ Public number — anyone can read its codes. Not for important accounts.</blockquote>"].join("\n"),[[{text:"📋 Copy Number",copy_text:{text:n.phone}} as unknown as InlineKeyboard[number][number]],...freeChannelButton,[{text:"🔄 Another Number",callback_data:`sms:fc:${a}`}],...home]); }
   if(action==="pm") return showPremium(ctx);
   if(action==="pp") return showPremiumProduct(ctx,Number(a));
   if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");

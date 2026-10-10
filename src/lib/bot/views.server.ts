@@ -88,7 +88,7 @@ export function mainKeyboard(isAdmin: boolean) {
   const rows: { text: string; style?: string }[][] = [];
     if (isAdmin) rows.push([{ text: "🛡 Admin Panel" }]);
     if (currentBot() === "sms") {
-      rows.push([{ text: "📲 Buy Number", style: "success" }, { text: "📥 My Numbers" }], [{ text: "💳 Top Up", style: "primary" }, { text: "👤 Profile" }], [{ text: "🎁 Invite" }, { text: "🆘 Support" }, { text: "ℹ️ About" }]);
+      rows.push([{ text: "📲 Buy Number", style: "success" }, { text: "🆓 Free Numbers", style: "primary" }], [{ text: "📥 My Numbers" }, { text: "💳 Top Up" }], [{ text: "👤 Profile" }, { text: "🎁 Invite" }], [{ text: "🆘 Support" }, { text: "ℹ️ About" }]);
       return { keyboard: rows, resize_keyboard: true, is_persistent: true, input_field_placeholder: "Choose an option…" };
     }
     if (currentBot() === "tg") {
