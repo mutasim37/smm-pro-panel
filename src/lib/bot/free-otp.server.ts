@@ -40,18 +40,20 @@ export async function freeNumbers(cc: string): Promise<FreeNumber[]> {
   return out;
 }
 
-type Otp = { from: string; code: string };
+type Otp = { from: string; code: string; text: string };
+const decode = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/\s+/g, " ").trim();
 export function parseInbox(html: string): Otp[] {
   const out: Otp[] = [];
   for (const art of html.split("<article").slice(1)) {
-    const code = /class="code" data-code="([^"]{3,12})"/.exec(art)?.[1];
-    if (!code) continue;
-    const from = /class="from-link">([^<]{1,40})</.exec(art)?.[1]?.trim() || "Unknown";
-    out.push({ from, code });
+    const code = /class="code" data-code="([^"]{3,12})"/.exec(art)?.[1] ?? "";
+    const text = decode(/<div class="sms">([\s\S]*?)<\/div>/.exec(art)?.[1] ?? "").slice(0, 900);
+    if (!code && !text) continue;
+    const from = decode(/class="from-link">([^<]{1,40})</.exec(art)?.[1] ?? "") || "Unknown";
+    out.push({ from, code, text });
   }
   return out.slice(0, 20);
 }
-const key = (phone: string, o: Otp) => `${phone}|${o.from}|${o.code}`;
+const key = (phone: string, o: Otp) => `${phone}|${o.from}|${o.code || o.text.slice(0, 120)}`;
 
 /** Start watching a number; existing messages are marked seen so only new OTPs are posted. */
 export async function watchFree(cc: string, n: FreeNumber) {
@@ -99,11 +101,12 @@ export async function syncFreeOtp() {
       if (error) continue; // already posted
       const c = FREE_COUNTRIES[w.country];
       await runAsBot("sms", () => tg("sendMessage", { chat_id: FREE_CHANNEL, parse_mode: "HTML", text: [
-        "<b>🆕 New OTP Received</b>", "━━━━━━━━━━━━━━",
+        "<b>🆕 New SMS Received</b>", "━━━━━━━━━━━━━━",
         `${c?.flag ?? "🌍"} Country · <b>${escapeHtml(c?.name ?? w.country)}</b>`,
         `📱 Number · <code>${escapeHtml(w.phone)}</code>`,
         `🏷 Service · <b>${escapeHtml(o.from)}</b>`, "",
-        `🔐 OTP · <code>${escapeHtml(o.code)}</code>`, "",
+        ...(o.code ? [`🔐 OTP · <code>${escapeHtml(o.code)}</code>`, ""] : []),
+        ...(o.text ? ["💬 <b>Full Message</b>", `<blockquote>${escapeHtml(o.text)}</blockquote>`, ""] : []),
         "<i>Public shared number · tap to copy</i>",
       ].join("\n") }));
       posted++;
