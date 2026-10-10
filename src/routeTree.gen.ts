@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SmmRouteImport } from './routes/smm'
 import { Route as SmsRouteImport } from './routes/sms'
 import { Route as ApiPublicDocsRouteImport } from './routes/api/public/docs'
 import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
@@ -30,6 +31,11 @@ import { Route as ApiPublicTgV2RouteImport } from './routes/api/public/tg/v2'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SmmRoute = SmmRouteImport.update({
+  id: '/smm',
+  path: '/smm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SmsRoute = SmsRouteImport.update({
@@ -118,6 +124,7 @@ const ApiPublicTgV2Route = ApiPublicTgV2RouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
@@ -137,6 +144,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
@@ -157,6 +165,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/smm'
     | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/smm'
     | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/smm'
     | '/sms'
     | '/api/public/docs'
     | '/api/public/v2'
@@ -236,6 +248,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SmmRoute: typeof SmmRoute
   SmsRoute: typeof SmsRoute
   ApiPublicDocsRoute: typeof ApiPublicDocsRoute
   ApiPublicV2Route: typeof ApiPublicV2Route
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/smm': {
+      id: '/smm'
+      path: '/smm'
+      fullPath: '/smm'
+      preLoaderRoute: typeof SmmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sms': {
@@ -380,6 +400,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SmmRoute: SmmRoute,
   SmsRoute: SmsRoute,
   ApiPublicDocsRoute: ApiPublicDocsRoute,
   ApiPublicV2Route: ApiPublicV2Route,

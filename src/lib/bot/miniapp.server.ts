@@ -10,17 +10,17 @@ async function hmac(key: ArrayBuffer | Uint8Array, msg: string) {
   const k = await crypto.subtle.importKey("raw", key as BufferSource, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
 }
-export async function verifyInitData(initData: string): Promise<number> {
+export async function verifyInitData(initData: string, tokenFn: () => Promise<string> = bot3TokenValue): Promise<number> {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash") ?? ""; params.delete("hash");
   const check = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join("\n");
-  const token = await bot3TokenValue();
+  const token = await tokenFn();
   const secret = await hmac(new TextEncoder().encode("WebAppData"), token);
   const sig = [...(await hmac(secret, check))].map((b) => b.toString(16).padStart(2, "0")).join("");
   let diff = sig.length ^ hash.length; for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ (hash.charCodeAt(i) || 0);
   const age = Date.now() / 1000 - Number(params.get("auth_date"));
   const id = Number(JSON.parse(params.get("user") ?? "{}").id);
-  if (diff || !(age < 86400) || !Number.isFinite(id) || id <= 0) throw new Error("Please open this from the Frrr SMS bot.");
+  if (diff || !(age < 86400) || !Number.isFinite(id) || id <= 0) throw new Error("Please open this from the bot.");
   return id;
 }
 async function withUser<T>(id: number, fn: () => Promise<T>) {
