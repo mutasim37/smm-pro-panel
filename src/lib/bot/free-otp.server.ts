@@ -108,8 +108,8 @@ export async function syncFreeOtp() {
       ].join("\n") }));
       posted++;
     }
-  }
-  return { watched: data?.length ?? 0, posted };
+  });
+  return { watched: data.length, posted };
 }
 
 export const freeChannelButton: InlineKeyboard = [[{ text: "📢 Join @freesmsotp to get OTP", url: "https://t.me/freesmsotp" }]];
