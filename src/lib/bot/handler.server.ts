@@ -26,9 +26,9 @@ import {
 } from "./catalog.server";
 import { placeOrder } from "./smmgen.server";
 import { verifyUsdtDeposit, looksLikeTxHash } from "./bsc.server";
-import { bkashNumber, claimBkash, looksLikeTrxId } from "./bkash.server";
+import { bkashNumber, claimBkash, looksLikeTrxId, generateBkashRef, findBkashRefPayment, normalizeBdPhone, type RefClaim } from "./bkash.server";
 import { binancePayId, findBinancePayment, looksLikeBinanceId } from "./binance.server";
-import { currentBot } from "./scope.server";
+import { currentBot, runAsBot, type BotId } from "./scope.server";
 import { adminCoupons, checkCoupon, COUPON_HELP, couponCard, createCoupon, disableCoupon, redeemCoupon, releaseCoupon } from "./coupons.server";
 import { buyTgAccount, showMyTg, showMyTgAccount, showTgCountries, showTgItem, showTgList, tgOtp, tgReset } from "./tgshop.server";
 import { setSetting } from "./settings.server";
@@ -1449,6 +1449,16 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
     return true;
   }
 
+  if (state.step === "await_bk_sender") {
+    const phone = normalizeBdPhone(text);
+    if (!phone) {
+      await sendMessage(chatId, "⚠️ Please send a valid bKash number, for example <code>01712345678</code>.");
+      return true;
+    }
+    await showBkashRefWarning(chatId, phone, state.data["pendingOrder"]);
+    return true;
+  }
+
   if (state.step === "await_bk_amount") {
     const amount = Number(text.replace(/[,৳\s]|tk/gi, ""));
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -2078,7 +2088,11 @@ async function handleCallback(query: any) {
       case "dep":
         if (a === "new") return askDepositAmount(ctx);
         if (a === "chk") return askHash(chatId);
-        if (a === "bk") return askBkashAmount(ctx);
+        if (a === "bk") return showBkashModes(ctx);
+        if (a === "bkn") return askBkashAmount(ctx);
+        if (a === "bks") return askBkashSender(ctx);
+        if (a === "bkc") return showBkashRefWaiting(ctx);
+        if (a === "bkr") return recheckBkashRef(ctx);
         if (a === "bn") return showBinance(ctx);
         if (a === "bkt") return askBkashTrx(ctx);
         return showFunds(ctx);

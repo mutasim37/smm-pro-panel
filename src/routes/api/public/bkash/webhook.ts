@@ -47,6 +47,14 @@ export const Route = createFileRoute("/api/public/bkash/webhook")({
             { trx_id: parsed.trxId, amount_bdt: parsed.amount, sender, body },
             { onConflict: "trx_id", ignoreDuplicates: true },
           );
+        if (parsed.ref && parsed.from) {
+          const { claimBkashRef } = await import("@/lib/bot/bkash.server");
+          const claim = await claimBkashRef(parsed.trxId, parsed.ref, parsed.from);
+          if (claim) {
+            const { autoCreditBkashRef } = await import("@/lib/bot/handler.server");
+            await autoCreditBkashRef(claim).catch((e) => console.error("bkash auto-credit failed", e));
+          }
+        }
         return ok();
       },
     },
