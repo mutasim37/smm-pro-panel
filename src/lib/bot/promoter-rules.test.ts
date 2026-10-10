@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+const describe = (_: string, fn: () => void) => fn();
 import { defaultPromoPct, promoFee } from "./promoter-rules";
 
 describe("promoter rules", () => {
