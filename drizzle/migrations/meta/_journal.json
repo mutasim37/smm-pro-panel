@@ -162,6 +162,13 @@
       "when": 1791636728160,
       "tag": "0022_promo_withdraw_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791636960203,
+      "tag": "0023_promo_to_wallet",
+      "breakpoints": true
     }
   ]
 }

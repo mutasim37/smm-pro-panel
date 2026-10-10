@@ -58,10 +58,12 @@ export async function promoterView(telegramId: number): Promise<{ text: string; 
       `👥 <b>Users joined</b> · <code>${count ?? 0}</code>`,
       `💰 <b>Available</b> · <code>${money(Number(p.balance))}</code>`,
       `📈 <b>Total earned</b> · <code>${money(Number(p.total_earned))}</code>`,
-      `💸 <b>Withdrawn</b> · <code>${money(Number(p.total_withdrawn))}</code>`,
+      `💸 <b>Withdrawn / used</b> · <code>${money(Number(p.total_withdrawn))}</code>`,
+      "",
+      "<blockquote>Only promoter earnings can be withdrawn — deposited wallet balance cannot. Move earnings to your wallet to buy products instead.</blockquote>",
     ].join("\n"),
     keyboard: [
-      [{ text: "💸 Withdraw Earnings", callback_data: "pm:wd" }],
+      [{ text: "💸 Withdraw Earnings", callback_data: "pm:wd" }, { text: "🛒 Move to Wallet", callback_data: "pm:tw" }],
       [{ text: "🏠 Home", callback_data: "home" }],
     ],
   };
@@ -103,7 +105,7 @@ export async function adminPromoters(): Promise<{ text: string; keyboard: Inline
         { text: `✅ Paid ${w.telegram_id}`, callback_data: `pm:ok:${w.id}` },
         { text: "❌ Reject", callback_data: `pm:no:${w.id}` },
       ]),
-      [{ text: "➕ Add Promoter", callback_data: "pm:add" }, { text: "🗑 Remove", callback_data: "pm:rm" }],
+      [{ text: "➕ Add Promoter", callback_data: "pm:add" }, { text: "🚫 Disable", callback_data: "pm:rm" }],
       [{ text: "⬅️ Admin Panel", callback_data: "a:panel" }],
     ],
   };
@@ -129,4 +131,11 @@ export async function decideWithdraw(id: string, approve: boolean) {
   }
   const { data: w } = await db.from("bot_promo_withdrawals").select("*").eq("id", id).maybeSingle();
   return w as { telegram_id: number; amount: number; fee: number; method: string } | null;
+}
+
+/** Moves all promoter earnings into the spendable wallet (no longer withdrawable). */
+export async function moveToWallet(telegramId: number): Promise<number> {
+  const { data, error } = await db.rpc("bot_promo_to_wallet", { _bot: currentBot(), _tg: telegramId });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
 }
