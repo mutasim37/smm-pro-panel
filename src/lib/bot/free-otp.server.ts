@@ -34,7 +34,7 @@ export async function freeNumbers(cc: string): Promise<FreeNumber[]> {
   const html = await get(c.path);
   const out: FreeNumber[] = [];
   const re = /href="(\/[a-z]{2}-phone-number\/(\d+)\/)"[\s\S]*?<strong>([^<]+)<\/strong>/g;
-  for (let m; (m = re.exec(html)) && out.length < 12;) out.push({ path: m[1], id: m[2], phone: m[3].replace(/[^\d+]/g, "") });
+  for (let m; (m = re.exec(html)) && out.length < 12;) out.push({ path: m[1] ?? "", id: m[2] ?? "", phone: (m[3] ?? "").replace(/[^\d+]/g, "") });
   listCache.set(cc, { at: Date.now(), v: out });
   return out;
 }
