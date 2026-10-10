@@ -1662,7 +1662,7 @@ async function handleStep(chatId: number, text: string, state: { step: string | 
 
 const SMM_ONLY = new Set(["svc", "ext", "find", "pop", "other", "pl", "pa", "oth", "api", "ct", "sv", "buy", "ord", "od", "re", "post", "cp"]);
 function menuAllowed(pick: string): boolean {
-  if (currentBot() === "sms") return ["sms","smsmy","dep","prof","sup","about","admin","ref"].includes(pick);
+  if (currentBot() === "sms") return ["sms","smsmy","smsfree","dep","prof","sup","about","admin","ref"].includes(pick);
   if (currentBot() === "tg") return !SMM_ONLY.has(pick);
   return pick !== "tg" && pick !== "tgmy";
 }
@@ -1672,9 +1672,10 @@ function callbackAllowed(head: string): boolean {
   return head !== "tg";
 }
 
-const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other" | "tgmy" | "sms" | "smsmy"> = {
+const MENU: Record<string, "svc" | "tg" | "ext" | "ord" | "dep" | "prof" | "sup" | "about" | "admin" | "find" | "pop" | "ref" | "other" | "tgmy" | "sms" | "smsmy" | "smsfree"> = {
   "📲 buy number": "sms",
   "📥 my numbers": "smsmy",
+  "🆓 free numbers": "smsfree",
   "📦 other products": "other",
   "🔍 search by code": "find",
   "🔥 popular": "pop",
@@ -1819,6 +1820,7 @@ async function routeUpdate(update: any): Promise<void> {
   switch (pick) {
     case "sms": return showSmsServers(ctx);
     case "smsmy": return showSmsOrders(ctx);
+    case "smsfree": return handleSmsCallback(ctx, "fr", undefined, undefined);
     case "tgmy":
       await clearState(chatId);
       return showMyTg(ctx, 0);

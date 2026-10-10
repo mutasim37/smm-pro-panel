@@ -1,6 +1,7 @@
 // Free public numbers (receivesms.co). OTP codes are posted ONLY to the public channel, never in the bot.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { escapeHtml, tg, type InlineKeyboard } from "./telegram.server";
+import { runAsBot } from "./scope.server";
 
 export const FREE_CHANNEL = "@freesmsotp";
 const BASE = "https://www.receivesms.co";
@@ -71,14 +72,14 @@ export async function syncFreeOtp() {
       const { error } = await supabaseAdmin.from("bot3_free_seen").insert({ key: key(w.phone, o) });
       if (error) continue; // already posted
       const c = FREE_COUNTRIES[w.country];
-      await tg("sendMessage", { chat_id: FREE_CHANNEL, parse_mode: "HTML", text: [
+      await runAsBot("sms", () => tg("sendMessage", { chat_id: FREE_CHANNEL, parse_mode: "HTML", text: [
         "<b>🆕 New OTP Received</b>", "━━━━━━━━━━━━━━",
         `${c?.flag ?? "🌍"} Country · <b>${escapeHtml(c?.name ?? w.country)}</b>`,
         `📱 Number · <code>${escapeHtml(w.phone)}</code>`,
         `🏷 Service · <b>${escapeHtml(o.from)}</b>`, "",
         `🔐 OTP · <code>${escapeHtml(o.code)}</code>`, "",
         "<i>Public shared number · tap to copy</i>",
-      ].join("\n") });
+      ].join("\n") }));
       posted++;
     }
   }
