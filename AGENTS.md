@@ -43,3 +43,4 @@
 - Manual wallet adjustments capture the selected currency and exchange rate in per-bot state, validate through the shared adjustment parser, and convert once to USD; this keeps entry amounts and accounting consistent.
 - Frrr SMS rules live in `src/lib/bot/AGENTS.md`.
 - SMS search stop uses a transactional request-in-flight marker: refund only after a definitive no-number result; persist cancellation intent before polling locks and retry refund-review orders in the existing bounded job.
+- bKash Super Mode: per-user 8-char reference + payer number in shared `bot_bkash_refs`; the bKash SMS webhook credits automatically via the atomic `bot_claim_bkash_ref` RPC (SMS claimed + ref claimed together) so a payment credits once.
