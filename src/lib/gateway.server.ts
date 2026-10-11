@@ -21,7 +21,7 @@ export function newId(prefix: string, n = 16) {
   return prefix + Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => c[b % c.length]).join("");
 }
 
-export async function createInvoice(i: { amount: number; merchant: string; order?: string; note?: string; callback?: string; minutes?: number }) {
+export async function createInvoice(i: { amount: number; merchant: string; order?: string; note?: string | null; callback?: string; minutes?: number }) {
   const row = {
     id: newId("inv_"), amount_bdt: Math.round(i.amount * 100) / 100, ref: generateBkashRef(), merchant: i.merchant,
     merchant_order: i.order ?? null, note: i.note ?? null, callback_url: i.callback ?? null,
@@ -59,13 +59,13 @@ async function markPaid(inv: any, trx: string, paid: number, payer: string | nul
 }
 
 /** Claims one SMS atomically, then marks the invoice paid. Each TrxID can be used once across bots + gateway. */
-async function claimSms(inv: any, trxId: string, amount: number, from: string | null) {
-  if (amount + 0.009 < Number(inv.amount_bdt)) return { ok: false as const, reason: "amount_low" };
+async function claimSms(inv: any, trxId: string, amount: number, from: string | null): Promise<VerifyResult> {
+  if (amount + 0.009 < Number(inv.amount_bdt)) return { ok: false, reason: "amount_low" };
   const { data } = await db.from("bot_bkash_sms").update({ claimed_by: GW_CLAIMER, claimed_at: new Date().toISOString() })
     .eq("trx_id", trxId).is("claimed_by", null).select("id");
-  if (!data?.length) return { ok: false as const, reason: "used" };
+  if (!data?.length) return { ok: false, reason: "used" };
   await markPaid(inv, trxId, amount, from);
-  return { ok: true as const };
+  return { ok: true };
 }
 
 export type VerifyResult = { ok: true } | { ok: false; reason: "not_found" | "used" | "amount_low" | "expired" | "not_pending" };
