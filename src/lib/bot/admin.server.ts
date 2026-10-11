@@ -28,7 +28,7 @@ export async function loadBotAccess() {
 
 export function adminKeyboard(): InlineKeyboard {
   const switches: InlineKeyboard = [[{text:"Frrr SMM",url:"https://t.me/Frrrsmm_bot"},{text:"Frrr TG",url:"https://t.me/Frrrtg_bot"},{text:"Frrr SMS",url:"https://t.me/Frrrsms_bot"}]];
-  if(currentBot()==="sms") return [[{text:"👥 Users",callback_data:"a:users"},{text:"📊 Statistics",callback_data:"a:stats"}],[{text:"📲 SMS Orders",callback_data:"a:orders"},{text:"🏦 Supplier",callback_data:"a:provider"}],[{text:"💵 Balance",callback_data:"a:bal"},{text:"💰 Deposits",callback_data:"a:deposits"}],[{text:"⚙ Pricing",callback_data:"a:pricing"},{text:"🔄 Refresh",callback_data:"a:refresh"}],[{text:"📣 Broadcast",callback_data:"a:broadcast"},{text:"🎫 Reports",callback_data:"a:tickets"}],[{text:"🎁 Referrals",callback_data:"a:ref"},{text:"📢 Force Channel",callback_data:"a:ch"}],...switches,[{text:"🏠 Home",callback_data:"home"}]];
+  if(currentBot()==="sms") return [[{text:"👥 Users",callback_data:"a:users"},{text:"📊 Statistics",callback_data:"a:stats"}],[{text:"📲 SMS Orders",callback_data:"a:orders"},{text:"🏦 Supplier",callback_data:"a:provider"}],[{text:"💵 Balance",callback_data:"a:bal"},{text:"💰 Deposits",callback_data:"a:deposits"}],[{text:"⚙ Pricing",callback_data:"a:pricing"},{text:"🔄 Refresh",callback_data:"a:refresh"}],[{text:"📣 Broadcast",callback_data:"a:broadcast"},{text:"🎫 Reports",callback_data:"a:tickets"}],[{text:"🎁 Referrals",callback_data:"a:ref"},{text:"📢 Force Channel",callback_data:"a:ch"}],[{text:"📣 Promoters",callback_data:"pm:adm"}],...switches,[{text:"🏠 Home",callback_data:"home"}]];
   return [
     [
       { text: "👥 Users", callback_data: "a:users" },
@@ -61,6 +61,9 @@ export function adminKeyboard(): InlineKeyboard {
       { text: "🎁 Referrals", callback_data: "a:ref" },
       { text: "🎟 Coupons", callback_data: "a:coupons" },
       { text: "💵 Add / Deduct Balance", callback_data: "a:bal" },
+    ],
+    [
+      { text: "📣 Promoters", callback_data: "pm:adm" },
     ],
     ...switches,
     [{ text: "🏠 Exit to Home", callback_data: "home" }],
