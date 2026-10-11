@@ -21,7 +21,7 @@ export function newId(prefix: string, n = 16) {
   return prefix + Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => c[b % c.length]).join("");
 }
 
-export async function createInvoice(i: { amount: number; merchant: string; order?: string; note?: string | null | undefined; callback?: string; minutes?: number }) {
+export async function createInvoice(i: { amount: number; merchant: string; order?: string | undefined; note?: string | null | undefined; callback?: string | undefined; minutes?: number | undefined }) {
   const row = {
     id: newId("inv_"), amount_bdt: Math.round(i.amount * 100) / 100, ref: generateBkashRef(), merchant: i.merchant,
     merchant_order: i.order ?? null, note: i.note ?? null, callback_url: i.callback ?? null,
