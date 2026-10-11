@@ -21,7 +21,7 @@ export function newId(prefix: string, n = 16) {
   return prefix + Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => c[b % c.length]).join("");
 }
 
-export async function createInvoice(i: { amount: number; merchant: string; order?: string; note?: string | null; callback?: string; minutes?: number }) {
+export async function createInvoice(i: { amount: number; merchant: string; order?: string; note?: string | null | undefined; callback?: string; minutes?: number }) {
   const row = {
     id: newId("inv_"), amount_bdt: Math.round(i.amount * 100) / 100, ref: generateBkashRef(), merchant: i.merchant,
     merchant_order: i.order ?? null, note: i.note ?? null, callback_url: i.callback ?? null,
@@ -90,7 +90,7 @@ export async function verifyInvoice(id: string, trxRaw?: string): Promise<Verify
     .gte("received_at", since).ilike("body", `%${inv.ref}%`).limit(5);
   for (const s of data ?? []) {
     const p = parseBkashSms(s.body);
-    if (p?.ref === inv.ref) return claimSms(inv, s.trx_id, p.amount, p.from);
+    if (p?.ref === inv.ref) return claimSms(inv, s.trx_id, p!.amount, p!.from);
   }
   return { ok: false, reason: "not_found" };
 }
