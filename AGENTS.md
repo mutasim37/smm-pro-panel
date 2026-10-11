@@ -45,4 +45,4 @@
 - SMS search stop uses a transactional request-in-flight marker: refund only after a definitive no-number result; persist cancellation intent before polling locks and retry refund-review orders in the existing bounded job.
 - bKash Super Mode: per-user 8-char reference + payer number in shared `bot_bkash_refs`; the bKash SMS webhook credits automatically via the atomic `bot_claim_bkash_ref` RPC (SMS claimed + ref claimed together) so a payment credits once.
 - Promoter program lives in `promoter.server.ts`: admin-granted per-bot promoters earn a % of referred users deposits for 30 days; balances move only through security-definer RPCs (credit/withdraw/reject) so a withdrawal debits once and rejection refunds once.
-- Payment gateway (/gateway admin, /pay/:id checkout, /api/public/gateway/v1): password in GATEWAY_ADMIN_PASSWORD secret; bKash SMS claimed_by=-1 marks gateway use so a TrxID pays once across bots and gateway.
+- Gateway: bKash SMS claimed_by=-1 marks gateway use so a TrxID pays once across bots.
