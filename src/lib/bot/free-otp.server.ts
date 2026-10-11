@@ -5,6 +5,7 @@ import { runAsBot } from "./scope.server";
 
 export const FREE_CHANNEL = "@freesmsotp";
 const BASE = "https://www.receivesms.co";
+export const FREE_BASE = BASE;
 const UA = { "User-Agent": "Mozilla/5.0 (compatible; FrrrSMS/1.0)" };
 export const FREE_COUNTRIES: Record<string, { name: string; flag: string; path: string }> = {
   gb: { name: "United Kingdom", flag: "🇬🇧", path: "/british-phone-numbers/gb/" },

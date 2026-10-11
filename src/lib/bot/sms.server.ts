@@ -8,7 +8,7 @@ import { money, usd, DIVIDER, currencyScope } from "./views.server";
 import { isCurrency, supportUsername } from "./config.server";
 import { notifyAdmins, isAdmin } from "./admin.server";
 import { rewardReferrer } from "./growth.server";
-import { FREE_COUNTRIES, freeNumbers, watchFree, freeChannelButton, syncFreeOtp } from "./free-otp.server";
+import { FREE_COUNTRIES, FREE_BASE, freeNumbers, freeChannelButton } from "./free-otp.server";
 import { smsPrice, parseSmsStatus, canRefundSms, shouldCancelSms, smsWindowMs, SMS_RETRY_STATUSES, SMS_CANCEL_DELAY_MS } from "./sms-rules";
 
 export type SmsCtx = { chatId: number; messageId?: number; fromPhoto?: boolean };
@@ -272,8 +272,8 @@ export async function handleSmsCallback(ctx: SmsCtx,action: string,a?: string,b?
     if(!list.length) return smsRespond(ctx,`<b>${c.flag} ${c.name}</b>\n${DIVIDER}\nNo free numbers right now. Try another country.`,[[{text:"⬅ Back",callback_data:"sms:fr"}],...home]);
     return smsRespond(ctx,`<b>${c.flag} ${c.name} · Free Numbers</b>\n${DIVIDER}\n📱 <b>Step 2 of 2</b> · Pick a number\n🟢 ${list.length} numbers online now`,[...list.map(n=>[{text:`🟢 ${n.phone}`,callback_data:`sms:fn:${a}:${n.id}`}]),[{text:"⬅ Back",callback_data:"sms:fr"}],...home]); }
   if(action==="fn") { const c=FREE_COUNTRIES[a??""]; const n=(await freeNumbers(a??"").catch(()=>[])).find(x=>x.id===b); if(!c||!n) return;
-    await watchFree(a!,n).catch(()=>null);
-    return smsRespond(ctx,["<b>✅ Free Number Ready</b>",DIVIDER,`${c.flag} Country · <b>${c.name}</b>`,`📱 Number · <code>${escapeHtml(n.phone)}</code>`,`⏱ Live watch · <b>30 minutes</b>`,DIVIDER,"<b>How to get your code</b>","1️⃣ Copy the number and request the code","2️⃣ Open @freesmsotp — new codes appear within ~1 minute","3️⃣ No code in 3–5 min? The app blocked it — try another number","","<blockquote>⚠️ Public number — anyone can read its codes. Not for important accounts.</blockquote>"].join("\n"),[[{text:"📋 Copy Number",copy_text:{text:n.phone}} as unknown as InlineKeyboard[number][number]],...freeChannelButton,[{text:"🔄 Another Number",callback_data:`sms:fc:${a}`}],...home]); }
+    // No server-side scanning: the user opens the number's public inbox directly (zero load on our server).
+    return smsRespond(ctx,["<b>✅ Free Number Ready</b>",DIVIDER,`${c.flag} Country · <b>${c.name}</b>`,`📱 Number · <code>${escapeHtml(n.phone)}</code>`,DIVIDER,"<b>How to get your code</b>","1️⃣ Copy the number and request the code","2️⃣ Tap 📥 Open Inbox and refresh after ~1 minute","3️⃣ No code in 3–5 min? The app blocked it — try another number","","<blockquote>⚠️ Public number — anyone can read its codes. Not for important accounts.</blockquote>"].join("\n"),[[{text:"📋 Copy Number",copy_text:{text:n.phone}} as unknown as InlineKeyboard[number][number]],[{text:"📥 Open Inbox",url:FREE_BASE+n.path}],...freeChannelButton,[{text:"🔄 Another Number",callback_data:`sms:fc:${a}`}],...home]); }
   if(action==="pm") return showPremium(ctx);
   if(action==="pp") return showPremiumProduct(ctx,Number(a));
   if(action==="pb") return buyPremium(ctx,Number(a),b==="year"?"year":"month");
@@ -314,7 +314,6 @@ export async function syncActiveSms() {
     const sent=await currencyScope.run({code},()=>sendMessage(o.telegram_id,o.otp?otpMessage(o as unknown as SmsOrder):`<b>💰 Refund Confirmed</b>\n${DIVIDER}\nService · <b>${escapeHtml(o.service_name)}</b>\nCountry · ${escapeHtml(o.country_name)}\n\nReturned · <b>${money(Number(o.refunded))}</b>\nThe amount is back in your wallet.\n\nOrder ID · <code>${o.id}</code>`,{reply_markup:ik([[{text:"📥 View Number",callback_data:`sms:o:${o.id}`}]] )}));
     await supabaseAdmin.from("bot3_sms_orders").update({notification_attempts:o.notification_attempts+1,...(sent?{notified_at:new Date().toISOString()}:{})}).eq("id",o.id);
   }
-  await syncFreeOtp().catch(()=>null);
   return {checked:data?.length??0};
 }
 function otpMessage(o: SmsOrder) {
