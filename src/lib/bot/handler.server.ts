@@ -1674,7 +1674,7 @@ function menuAllowed(pick: string): boolean {
   return pick !== "tg" && pick !== "tgmy";
 }
 function callbackAllowed(head: string): boolean {
-  if (currentBot() === "sms") return ["sms","dep","prof","cur","home","cancel","fj","ref","a","noop","api"].includes(head);
+  if (currentBot() === "sms") return ["sms","dep","prof","cur","home","cancel","fj","ref","a","noop","api","pm"].includes(head);
   if (currentBot() === "tg") return !SMM_ONLY.has(head);
   return head !== "tg";
 }
