@@ -10,13 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GatewayRouteImport } from './routes/gateway'
 import { Route as SmmRouteImport } from './routes/smm'
 import { Route as SmsRouteImport } from './routes/sms'
+import { Route as PayIdRouteImport } from './routes/pay.$id'
 import { Route as ApiPublicDocsRouteImport } from './routes/api/public/docs'
 import { Route as ApiPublicV2RouteImport } from './routes/api/public/v2'
 import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicCronSyncOrdersRouteImport } from './routes/api/public/cron/sync-orders'
 import { Route as ApiPublicCronSyncSmsRouteImport } from './routes/api/public/cron/sync-sms'
+import { Route as ApiPublicGatewayV1RouteImport } from './routes/api/public/gateway/v1'
 import { Route as ApiPublicSmmDocsRouteImport } from './routes/api/public/smm/docs'
 import { Route as ApiPublicSmmV2RouteImport } from './routes/api/public/smm/v2'
 import { Route as ApiPublicSmsDocsRouteImport } from './routes/api/public/sms/docs'
@@ -33,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GatewayRoute = GatewayRouteImport.update({
+  id: '/gateway',
+  path: '/gateway',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SmmRoute = SmmRouteImport.update({
   id: '/smm',
   path: '/smm',
@@ -41,6 +49,11 @@ const SmmRoute = SmmRouteImport.update({
 const SmsRoute = SmsRouteImport.update({
   id: '/sms',
   path: '/sms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayIdRoute = PayIdRouteImport.update({
+  id: '/pay/$id',
+  path: '/pay/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicDocsRoute = ApiPublicDocsRouteImport.update({
@@ -66,6 +79,11 @@ const ApiPublicCronSyncOrdersRoute = ApiPublicCronSyncOrdersRouteImport.update({
 const ApiPublicCronSyncSmsRoute = ApiPublicCronSyncSmsRouteImport.update({
   id: '/api/public/cron/sync-sms',
   path: '/api/public/cron/sync-sms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicGatewayV1Route = ApiPublicGatewayV1RouteImport.update({
+  id: '/api/public/gateway/v1',
+  path: '/api/public/gateway/v1',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSmmDocsRoute = ApiPublicSmmDocsRouteImport.update({
@@ -124,13 +142,16 @@ const ApiPublicTgV2Route = ApiPublicTgV2RouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gateway': typeof GatewayRoute
   '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
+  '/pay/$id': typeof PayIdRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/gateway/v1': typeof ApiPublicGatewayV1Route
   '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
@@ -144,13 +165,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/gateway': typeof GatewayRoute
   '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
+  '/pay/$id': typeof PayIdRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/gateway/v1': typeof ApiPublicGatewayV1Route
   '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
@@ -165,13 +189,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/gateway': typeof GatewayRoute
   '/smm': typeof SmmRoute
   '/sms': typeof SmsRoute
+  '/pay/$id': typeof PayIdRoute
   '/api/public/docs': typeof ApiPublicDocsRoute
   '/api/public/v2': typeof ApiPublicV2Route
   '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/sync-orders': typeof ApiPublicCronSyncOrdersRoute
   '/api/public/cron/sync-sms': typeof ApiPublicCronSyncSmsRoute
+  '/api/public/gateway/v1': typeof ApiPublicGatewayV1Route
   '/api/public/smm/docs': typeof ApiPublicSmmDocsRoute
   '/api/public/smm/v2': typeof ApiPublicSmmV2Route
   '/api/public/sms/docs': typeof ApiPublicSmsDocsRoute
@@ -187,13 +214,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gateway'
     | '/smm'
     | '/sms'
+    | '/pay/$id'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/gateway/v1'
     | '/api/public/smm/docs'
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
@@ -207,13 +237,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/gateway'
     | '/smm'
     | '/sms'
+    | '/pay/$id'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/gateway/v1'
     | '/api/public/smm/docs'
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
@@ -227,13 +260,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/gateway'
     | '/smm'
     | '/sms'
+    | '/pay/$id'
     | '/api/public/docs'
     | '/api/public/v2'
     | '/api/public/bkash/webhook'
     | '/api/public/cron/sync-orders'
     | '/api/public/cron/sync-sms'
+    | '/api/public/gateway/v1'
     | '/api/public/smm/docs'
     | '/api/public/smm/v2'
     | '/api/public/sms/docs'
@@ -248,13 +284,16 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GatewayRoute: typeof GatewayRoute
   SmmRoute: typeof SmmRoute
   SmsRoute: typeof SmsRoute
+  PayIdRoute: typeof PayIdRoute
   ApiPublicDocsRoute: typeof ApiPublicDocsRoute
   ApiPublicV2Route: typeof ApiPublicV2Route
   ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronSyncOrdersRoute: typeof ApiPublicCronSyncOrdersRoute
   ApiPublicCronSyncSmsRoute: typeof ApiPublicCronSyncSmsRoute
+  ApiPublicGatewayV1Route: typeof ApiPublicGatewayV1Route
   ApiPublicSmmDocsRoute: typeof ApiPublicSmmDocsRoute
   ApiPublicSmmV2Route: typeof ApiPublicSmmV2Route
   ApiPublicSmsDocsRoute: typeof ApiPublicSmsDocsRoute
@@ -276,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gateway': {
+      id: '/gateway'
+      path: '/gateway'
+      fullPath: '/gateway'
+      preLoaderRoute: typeof GatewayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/smm': {
       id: '/smm'
       path: '/smm'
@@ -288,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/sms'
       fullPath: '/sms'
       preLoaderRoute: typeof SmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pay/$id': {
+      id: '/pay/$id'
+      path: '/pay/$id'
+      fullPath: '/pay/$id'
+      preLoaderRoute: typeof PayIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/docs': {
@@ -323,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/cron/sync-sms'
       fullPath: '/api/public/cron/sync-sms'
       preLoaderRoute: typeof ApiPublicCronSyncSmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/gateway/v1': {
+      id: '/api/public/gateway/v1'
+      path: '/api/public/gateway/v1'
+      fullPath: '/api/public/gateway/v1'
+      preLoaderRoute: typeof ApiPublicGatewayV1RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/smm/docs': {
@@ -400,13 +460,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GatewayRoute: GatewayRoute,
   SmmRoute: SmmRoute,
   SmsRoute: SmsRoute,
+  PayIdRoute: PayIdRoute,
   ApiPublicDocsRoute: ApiPublicDocsRoute,
   ApiPublicV2Route: ApiPublicV2Route,
   ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronSyncOrdersRoute: ApiPublicCronSyncOrdersRoute,
   ApiPublicCronSyncSmsRoute: ApiPublicCronSyncSmsRoute,
+  ApiPublicGatewayV1Route: ApiPublicGatewayV1Route,
   ApiPublicSmmDocsRoute: ApiPublicSmmDocsRoute,
   ApiPublicSmmV2Route: ApiPublicSmmV2Route,
   ApiPublicSmsDocsRoute: ApiPublicSmsDocsRoute,
