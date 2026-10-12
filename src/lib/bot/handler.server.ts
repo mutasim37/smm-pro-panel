@@ -719,17 +719,8 @@ async function showFunds(ctx: Ctx) {
 /* ------------------------------- Binance Pay ------------------------------ */
 
 async function showBinance(ctx: Ctx, pendingOrder?: any) {
-  if (!pendingOrder) {
-    await setState(ctx.chatId, "await_bn_amount", {});
-    await respond(ctx, [
-      "<b>🟡 BINANCE PAY</b>", DIVIDER,
-      "💵 <b>How much USDT do you want to deposit?</b>",
-      `📉 <b>Minimum deposit</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
-      "<i>Send the amount, e.g. 5</i>",
-    ].join("\n"), [[{ text: "✖️ Cancel", callback_data: "cancel" }]]);
-    return;
-  }
-  return showBinanceInvoice(ctx.chatId, Number(pendingOrder.amount ?? pendingOrder.price ?? 0) || 0, pendingOrder);
+  // No amount step: the paid amount is detected automatically from the transaction.
+  return showBinanceInvoice(ctx.chatId, pendingOrder ? Number(pendingOrder.amount ?? pendingOrder.price ?? 0) || 0 : 0, pendingOrder);
 }
 
 async function showBinanceInvoice(chatId: number, amount: number, pendingOrder?: any) {
@@ -744,8 +735,9 @@ async function showBinanceInvoice(chatId: number, amount: number, pendingOrder?:
       `<code>${binancePayId()}</code>  <i>(tap to copy)</i>`,
       DIVIDER,
       `📉 <b>Minimum deposit</b> · <code>$${minDepositUsd().toFixed(2)}</code>`,
-      "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send the amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID</b> and send it here.</blockquote>",
-      "Each Order ID can be used only once.",
+      "<blockquote>1. Binance → Pay → Send → paste the Pay ID.\n2. Send any amount in <b>USDT</b>.\n3. Open Pay → History, copy the <b>Order ID / Transaction ID</b> and send it here.</blockquote>",
+      "✨ <b>Just send the Transaction ID</b> — the amount is detected automatically.",
+      "Each Transaction ID can be used only once.",
     ].join("\n"),
     { reply_markup: ik([[{ text: "🆘 Support", url: `https://t.me/${supportUsername()}` }, { text: "✖️ Cancel", callback_data: "cancel" }]]) },
   );
@@ -890,7 +882,12 @@ async function withChecking<T>(chatId: number, title: string, task: () => Promis
   } finally {
     done = true;
     await animate.catch(() => {});
-    if (mid) await tg("deleteMessage", { chat_id: chatId, message_id: mid }).catch(() => {});
+    if (mid) {
+      // Always finish the bar at 100% before the result appears.
+      await tg("editMessageText", { chat_id: chatId, message_id: mid, text: frames[frames.length - 1], parse_mode: "HTML" }).catch(() => {});
+      await sleep(350);
+      await tg("deleteMessage", { chat_id: chatId, message_id: mid }).catch(() => {});
+    }
   }
 }
 
